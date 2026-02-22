@@ -1,0 +1,136 @@
+[tool.poetry]
+name = "dopshy-backend"
+version = "0.0.1"
+description = "A comprehensive template to start a real-world quality project."
+authors = ["Aeternalis-Ingenium <aeternalisingenium@proton.me>"]
+package-mode = false
+
+[tool.poetry.dependencies]
+python = ">=3.11,<3.14"
+alembic = "*"
+asgi-lifespan = "*"
+argon2-cffi = "*"
+asyncpg = "*"
+bcrypt = "*"
+colorama = "*"
+email-validator = "*"
+fastapi = "*"
+greenlet = "*"
+loguru = "*"
+passlib = "*"
+python-dotenv = "*"
+python-decouple = "*"
+python-jose = "*"
+python-slugify = "*"
+pydantic-settings = "*"
+SQLAlchemy = ">=2.0,<3.0"
+trio = "*"
+uvicorn = "*"
+watchfiles = "*"
+
+[tool.poetry.group.dev.dependencies]
+black = "*"
+isort = "*"
+mypy = "*"
+httpx = "*"
+pre-commit = "*"
+pytest = "*"
+pytest-asyncio = "*"
+pytest-cov = "*"
+pytest-xdist = "*"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+color = true
+exclude = '''
+    /(
+        \.git
+        | \._build
+        | \.back.out
+        | \.build
+        | \.coverage
+        | \.dist
+        | \.hg
+        | \.mypy_cache
+        | \.tox
+        | \.venv
+        | ./src/coverage
+        | blib2to3
+        | tests/data
+    )/
+'''
+include = '\.pyi?$'
+line-length = 119
+
+[tool.isort]
+color_output = true
+combine_as_imports = true
+ensure_newline_before_comments = true
+force_alphabetical_sort_within_sections = true
+force_grid_wrap = 0
+include_trailing_comma = true
+line_length = 119
+lines_between_sections = 1
+multi_line_output = 3
+profile = "black"
+skip = [
+    ".coverage",
+    "coverage/*",
+    "cov.html",
+    ".dockerignore",
+    ".env",
+    ".github",
+    ".gitignore",
+    ".html",
+    ".md",
+    ".python-version",
+    ".rst",
+    ".xml"
+]
+skip_gitignore = true
+skip_glob = [
+    "src/repository/migrations/**",
+]
+src_paths = [
+    "src/",
+    "tests/",
+]
+use_parentheses = true
+
+[tool.mypy]
+check_untyped_defs = true
+color_output = true
+error_summary = true
+exclude = "(build|data|dist|docs/src|images|logo|logs|output)/"
+ignore_missing_imports = true
+pretty = true
+python_version = "3.13"
+strict_optional = true
+warn_no_return = true
+warn_return_any = false
+
+[tool.pytest.ini_options]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test", "Acceptance"]
+python_functions = ["test_*"]
+testpaths = "tests"
+filterwarnings = "error"
+addopts = '''
+    --verbose
+    -p no:warnings
+    --strict-markers
+    --tb=short
+    --cov=src
+    --cov=tests
+    --cov-branch
+    --cov-report=term-missing
+    --cov-report=html:coverage/cov.html
+    --cov-report=xml:coverage/cov.xml
+    --no-cov-on-fail
+    --cov-fail-under=63
+    --numprocesses=auto
+    --asyncio-mode=auto
+'''
