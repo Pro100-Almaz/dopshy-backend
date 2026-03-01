@@ -17,6 +17,12 @@ class Account(Base):  # type: ignore
     email: SQLAlchemyMapped[str] = sqlalchemy_mapped_column(sqlalchemy.String(length=64), nullable=False, unique=True)
     _hashed_password: SQLAlchemyMapped[str] = sqlalchemy_mapped_column(sqlalchemy.String(length=1024), nullable=True)
     _hash_salt: SQLAlchemyMapped[str] = sqlalchemy_mapped_column(sqlalchemy.String(length=1024), nullable=True)
+    _verification_code: SQLAlchemyMapped[str | None] = sqlalchemy_mapped_column(
+        sqlalchemy.String(length=6), nullable=True
+    )
+    verification_code_expires_at: SQLAlchemyMapped[datetime.datetime | None] = sqlalchemy_mapped_column(
+        sqlalchemy.DateTime(timezone=False), nullable=True
+    )
     is_verified: SQLAlchemyMapped[bool] = sqlalchemy_mapped_column(sqlalchemy.Boolean, nullable=False, default=False)
     is_active: SQLAlchemyMapped[bool] = sqlalchemy_mapped_column(sqlalchemy.Boolean, nullable=False, default=False)
     is_logged_in: SQLAlchemyMapped[bool] = sqlalchemy_mapped_column(sqlalchemy.Boolean, nullable=False, default=False)
@@ -44,3 +50,10 @@ class Account(Base):  # type: ignore
 
     def set_hash_salt(self, hash_salt: str) -> None:
         self._hash_salt = hash_salt
+
+    @property
+    def verification_code(self) -> str | None:
+        return self._verification_code
+
+    def set_verification_code(self, code: str | None) -> None:
+        self._verification_code = code

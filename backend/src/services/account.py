@@ -1,13 +1,17 @@
+import secrets
+
 from src.models.db.account import Account
 from src.models.schemas.account import (
     AccountInCreate,
     AccountInLogin,
     AccountInResponse,
     AccountInUpdate,
+    AccountVerifyCode,
     AccountWithToken,
 )
 from src.repository.crud.account import AccountCRUDRepository
 from src.securities.authorizations.jwt import jwt_generator
+from src.utilities.email.smtp import send_verification_email as smtp_send_verification_email
 
 
 class AccountService:
@@ -34,7 +38,19 @@ class AccountService:
         await self.account_repo.is_username_taken(username=account_create.username)
         await self.account_repo.is_email_taken(email=account_create.email)
         new_account = await self.account_repo.create_account(account_create=account_create)
+        await self.send_verification_email(email=account_create.email)
         return self._build_response(account=new_account)
+
+    async def send_verification_email(self, email: str) -> dict[str, str]:
+        code = str(secrets.randbelow(900000) + 100000)
+        db_account = await self.account_repo.read_account_by_email(email=email)
+        await self.account_repo.set_verification_code(account=db_account, code=code)
+        await smtp_send_verification_email(recipient_email=email, code=code)
+        return {"message": f"Код подтверждения отправлен на {email}"}
+
+    async def verify_code(self, payload: AccountVerifyCode) -> dict[str, str]:
+        await self.account_repo.verify_account_code(email=payload.email, code=payload.code)
+        return {"message": "Аккаунт успешно подтверждён!"}
 
     async def signin(self, account_login: AccountInLogin) -> AccountInResponse:
         db_account = await self.account_repo.read_user_by_password_authentication(account_login=account_login)

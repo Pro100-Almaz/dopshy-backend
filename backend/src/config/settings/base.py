@@ -70,6 +70,13 @@ class BackendBaseSettings(BaseSettings):
     HASHING_SALT: str = decouple.config("HASHING_SALT", cast=str)  # type: ignore
     JWT_ALGORITHM: str = decouple.config("JWT_ALGORITHM", cast=str)  # type: ignore
 
+    SMTP_HOST: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: str = decouple.config("SMTP_USERNAME", cast=str)  # type: ignore
+    SMTP_PASSWORD: str = decouple.config("SMTP_PASSWORD", cast=str)  # type: ignore
+    SMTP_SENDER_EMAIL: str = decouple.config("SMTP_SENDER_EMAIL", cast=str)  # type: ignore
+    VERIFICATION_CODE_TTL_MINUTES: int = 10
+
     # Pydantic v2 / pydantic-settings config
     model_config = SettingsConfigDict(
         case_sensitive=True,

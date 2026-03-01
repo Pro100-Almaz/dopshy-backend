@@ -40,3 +40,10 @@ async def http_400_exc_bad_email_request(email: str) -> Exception:
         status_code=fastapi.status.HTTP_400_BAD_REQUEST,
         detail=http_400_email_details(email=email),
     )
+
+
+async def http_400_exc_bad_verification_code_request() -> Exception:
+    return fastapi.HTTPException(
+        status_code=fastapi.status.HTTP_400_BAD_REQUEST,
+        detail="Неверный или просроченный код подтверждения.",
+    )

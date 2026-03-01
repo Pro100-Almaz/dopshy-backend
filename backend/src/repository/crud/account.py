@@ -1,3 +1,4 @@
+import datetime
 import typing
 
 import sqlalchemy
@@ -138,3 +139,32 @@ class AccountCRUDRepository(BaseCRUDRepository):
             raise EntityAlreadyExists(f"The email `{email}` is already registered!")  # type: ignore
 
         return True
+
+    async def set_verification_code(self, account: Account, code: str) -> None:
+        account.set_verification_code(code=code)
+        account.verification_code_expires_at = datetime.datetime.utcnow() + datetime.timedelta(minutes=10)
+        await self.async_session.commit()
+        await self.async_session.refresh(instance=account)
+
+    async def verify_account_code(self, email: str, code: str) -> Account:
+        stmt = sqlalchemy.select(Account).where(Account.email == email)
+        query = await self.async_session.execute(statement=stmt)
+        db_account = query.scalar()
+
+        if not db_account:
+            raise EntityDoesNotExist(f"Account with email `{email}` does not exist!")
+
+        if (
+            db_account.verification_code != code
+            or db_account.verification_code_expires_at is None
+            or datetime.datetime.utcnow() > db_account.verification_code_expires_at
+        ):
+            raise ValueError("Invalid or expired verification code.")
+
+        db_account.is_verified = True
+        db_account.set_verification_code(code=None)
+        db_account.verification_code_expires_at = None
+        await self.async_session.commit()
+        await self.async_session.refresh(instance=db_account)
+
+        return db_account  # type: ignore

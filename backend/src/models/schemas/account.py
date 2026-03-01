@@ -37,3 +37,16 @@ class AccountWithToken(BaseSchemaModel):
 class AccountInResponse(BaseSchemaModel):
     id: int
     authorized_account: AccountWithToken
+
+
+class AccountVerifyCode(BaseSchemaModel):
+    email: pydantic.EmailStr
+    code: str
+
+
+class AccountResendVerification(BaseSchemaModel):
+    email: pydantic.EmailStr
+
+
+class AccountVerificationResponse(BaseSchemaModel):
+    message: str
