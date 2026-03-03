@@ -1,7 +1,10 @@
 import fastapi
 import pydantic
 
+from src.api.dependencies.auth import require_roles
 from src.api.dependencies.service import get_account_service
+from src.models.db.account import Account
+from src.models.enums.role import Role
 from src.models.schemas.account import AccountInResponse, AccountInUpdate
 from src.services.account import AccountService
 from src.utilities.exceptions.database import EntityDoesNotExist
@@ -19,6 +22,7 @@ router = fastapi.APIRouter(prefix="/accounts", tags=["accounts"])
     status_code=fastapi.status.HTTP_200_OK,
 )
 async def get_accounts(
+    _: Account = fastapi.Depends(require_roles(Role.ADMIN)),
     account_service: AccountService = fastapi.Depends(get_account_service),
 ) -> list[AccountInResponse]:
     return await account_service.get_accounts()
@@ -32,6 +36,7 @@ async def get_accounts(
 )
 async def get_account(
     id: int,
+    _: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.MANAGER)),
     account_service: AccountService = fastapi.Depends(get_account_service),
 ) -> AccountInResponse:
     try:
@@ -48,6 +53,7 @@ async def get_account(
 )
 async def update_account(
     query_id: int,
+    _: Account = fastapi.Depends(require_roles(Role.ADMIN)),
     update_username: str | None = None,
     update_email: pydantic.EmailStr | None = None,
     update_password: str | None = None,
@@ -67,6 +73,7 @@ async def update_account(
 )
 async def delete_account(
     id: int,
+    _: Account = fastapi.Depends(require_roles(Role.ADMIN)),
     account_service: AccountService = fastapi.Depends(get_account_service),
 ) -> dict[str, str]:
     try:

@@ -6,6 +6,7 @@ from src.models.schemas.account import (
     AccountInLogin,
     AccountInResponse,
     AccountInUpdate,
+    AccountRoleUpdate,
     AccountVerifyCode,
     AccountWithToken,
 )
@@ -26,6 +27,7 @@ class AccountService:
                 token=token,
                 username=account.username,
                 email=account.email,  # type: ignore
+                role=account.role,
                 is_verified=account.is_verified,
                 is_active=account.is_active,
                 is_logged_in=account.is_logged_in,
@@ -71,3 +73,7 @@ class AccountService:
     async def delete_account(self, id: int) -> dict[str, str]:
         result = await self.account_repo.delete_account_by_id(id=id)
         return {"notification": result}
+
+    async def assign_role(self, payload: AccountRoleUpdate) -> AccountInResponse:
+        updated = await self.account_repo.update_account_role(account_id=payload.account_id, role=payload.role)
+        return self._build_response(account=updated)

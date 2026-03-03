@@ -1,7 +1,17 @@
 import fastapi
 
+from src.api.dependencies.auth import require_roles
 from src.api.dependencies.service import get_account_service
-from src.models.schemas.account import AccountInCreate, AccountInLogin, AccountInResponse, AccountResendVerification, AccountVerifyCode
+from src.models.db.account import Account
+from src.models.enums.role import Role
+from src.models.schemas.account import (
+    AccountInCreate,
+    AccountInLogin,
+    AccountInResponse,
+    AccountResendVerification,
+    AccountRoleUpdate,
+    AccountVerifyCode,
+)
 from src.services.account import AccountService
 from src.utilities.exceptions.database import EntityAlreadyExists, EntityDoesNotExist
 from src.utilities.exceptions.http.exc_400 import (
@@ -9,6 +19,7 @@ from src.utilities.exceptions.http.exc_400 import (
     http_exc_400_credentials_bad_signup_request,
     http_400_exc_bad_verification_code_request,
 )
+from src.utilities.exceptions.http.exc_404 import http_404_exc_id_not_found_request
 
 router = fastapi.APIRouter(prefix="/auth", tags=["authentication"])
 
@@ -73,3 +84,20 @@ async def resend_verification(
         return await account_service.send_verification_email(email=body.email)
     except EntityDoesNotExist:
         raise await http_400_exc_bad_verification_code_request()
+
+
+@router.post(
+    path="/assign-role",
+    name="auth:assign-role",
+    response_model=AccountInResponse,
+    status_code=fastapi.status.HTTP_200_OK,
+)
+async def assign_role(
+    body: AccountRoleUpdate,
+    _: Account = fastapi.Depends(require_roles(Role.ADMIN)),
+    account_service: AccountService = fastapi.Depends(get_account_service),
+) -> AccountInResponse:
+    try:
+        return await account_service.assign_role(payload=body)
+    except EntityDoesNotExist:
+        raise await http_404_exc_id_not_found_request(id=body.account_id)

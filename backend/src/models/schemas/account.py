@@ -27,6 +27,7 @@ class AccountWithToken(BaseSchemaModel):
     token: str
     username: str
     email: pydantic.EmailStr
+    role: str
     is_verified: bool
     is_active: bool
     is_logged_in: bool
@@ -37,6 +38,11 @@ class AccountWithToken(BaseSchemaModel):
 class AccountInResponse(BaseSchemaModel):
     id: int
     authorized_account: AccountWithToken
+
+
+class AccountRoleUpdate(BaseSchemaModel):
+    account_id: int
+    role: str
 
 
 class AccountVerifyCode(BaseSchemaModel):

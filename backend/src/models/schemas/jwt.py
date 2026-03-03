@@ -11,3 +11,4 @@ class JWToken(pydantic.BaseModel):
 class JWTAccount(pydantic.BaseModel):
     username: str
     email: pydantic.EmailStr
+    role: str

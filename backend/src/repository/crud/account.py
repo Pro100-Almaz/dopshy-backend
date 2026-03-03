@@ -140,6 +140,20 @@ class AccountCRUDRepository(BaseCRUDRepository):
 
         return True
 
+    async def update_account_role(self, account_id: int, role: str) -> Account:
+        stmt = sqlalchemy.select(Account).where(Account.id == account_id)
+        query = await self.async_session.execute(statement=stmt)
+        account = query.scalar()
+
+        if not account:
+            raise EntityDoesNotExist(f"Account with id `{account_id}` does not exist!")
+
+        account.role = role
+        await self.async_session.commit()
+        await self.async_session.refresh(instance=account)
+
+        return account  # type: ignore
+
     async def set_verification_code(self, account: Account, code: str) -> None:
         account.set_verification_code(code=code)
         account.verification_code_expires_at = datetime.datetime.utcnow() + datetime.timedelta(minutes=10)

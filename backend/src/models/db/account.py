@@ -4,6 +4,7 @@ import sqlalchemy
 from sqlalchemy.orm import Mapped as SQLAlchemyMapped, mapped_column as sqlalchemy_mapped_column
 from sqlalchemy.sql import functions as sqlalchemy_functions
 
+from src.models.enums.role import Role
 from src.repository.table import Base
 
 
@@ -22,6 +23,9 @@ class Account(Base):  # type: ignore
     )
     verification_code_expires_at: SQLAlchemyMapped[datetime.datetime | None] = sqlalchemy_mapped_column(
         sqlalchemy.DateTime(timezone=False), nullable=True
+    )
+    role: SQLAlchemyMapped[str] = sqlalchemy_mapped_column(
+        sqlalchemy.String(length=16), nullable=False, default=Role.CLIENT.value
     )
     is_verified: SQLAlchemyMapped[bool] = sqlalchemy_mapped_column(sqlalchemy.Boolean, nullable=False, default=False)
     is_active: SQLAlchemyMapped[bool] = sqlalchemy_mapped_column(sqlalchemy.Boolean, nullable=False, default=False)

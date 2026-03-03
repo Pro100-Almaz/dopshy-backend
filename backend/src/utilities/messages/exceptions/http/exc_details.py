@@ -32,3 +32,11 @@ def http_404_username_details(username: str) -> str:
 
 def http_404_email_details(email: str) -> str:
     return f"Either the account with email `{email}` doesn't exist, has been deleted, or you are not authorized!"
+
+
+def http_404_field_details(id: int) -> str:
+    return f"Field with id `{id}` does not exist or has been deleted!"
+
+
+def http_404_booking_details(id: int) -> str:
+    return f"Booking with id `{id}` does not exist or has been deleted!"
