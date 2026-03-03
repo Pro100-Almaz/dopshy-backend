@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection, AsyncSessionTransaction
 from sqlalchemy.pool.base import _ConnectionRecord
 
 from src.repository.database import async_db
+from src.repository.seeder import seed_admin
 from src.repository.table import Base
 
 
@@ -41,6 +42,9 @@ async def initialize_db_connection(backend_app: fastapi.FastAPI) -> None:
 
     async with backend_app.state.db.async_engine.begin() as connection:
         await initialize_db_tables(connection=connection)
+
+    async with backend_app.state.db.async_sessionmaker() as session:
+        await seed_admin(session=session)
 
     loguru.logger.info("Database Connection --- Successfully Established!")
 

@@ -77,6 +77,11 @@ class BackendBaseSettings(BaseSettings):
     SMTP_SENDER_EMAIL: str = decouple.config("SMTP_SENDER_EMAIL", cast=str)  # type: ignore
     VERIFICATION_CODE_TTL_MINUTES: int = 10
 
+    # Initial admin account seeded at startup (leave blank to skip seeding)
+    ADMIN_USERNAME: str = decouple.config("ADMIN_USERNAME", cast=str, default="")  # type: ignore
+    ADMIN_EMAIL: str = decouple.config("ADMIN_EMAIL", cast=str, default="")  # type: ignore
+    ADMIN_PASSWORD: str = decouple.config("ADMIN_PASSWORD", cast=str, default="")  # type: ignore
+
     # Pydantic v2 / pydantic-settings config
     model_config = SettingsConfigDict(
         case_sensitive=True,
