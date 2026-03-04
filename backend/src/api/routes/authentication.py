@@ -1,4 +1,5 @@
 import fastapi
+import loguru
 
 from src.api.dependencies.auth import require_roles
 from src.api.dependencies.service import get_account_service
@@ -52,7 +53,8 @@ async def signin(
 ) -> AccountInResponse:
     try:
         return await account_service.signin(account_login=account_login)
-    except Exception:
+    except Exception as e:
+        loguru.logger.error(f"Signin failed: {type(e).__name__}: {e}")
         raise await http_exc_400_credentials_bad_signin_request()
 
 

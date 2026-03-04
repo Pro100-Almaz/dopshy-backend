@@ -1,7 +1,7 @@
 import typing
 
 import fastapi
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from src.api.dependencies.repository import get_repository
 from src.models.db.account import Account
@@ -10,13 +10,15 @@ from src.repository.crud.account import AccountCRUDRepository
 from src.securities.authorizations.jwt import jwt_generator
 from src.config.manager import settings
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/signin")
+
+bearer_scheme = HTTPBearer()
 
 
 async def get_current_user(
-    token: str = fastapi.Depends(oauth2_scheme),
+    credentials: HTTPAuthorizationCredentials = fastapi.Depends(bearer_scheme),
     account_repo: AccountCRUDRepository = fastapi.Depends(get_repository(repo_type=AccountCRUDRepository)),
 ) -> Account:
+    token = credentials.credentials
     try:
         details = jwt_generator.retrieve_details_from_token(token=token, secret_key=settings.JWT_SECRET_KEY)
         email = details[1]

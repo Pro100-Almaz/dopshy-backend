@@ -63,14 +63,12 @@ class AccountCRUDRepository(BaseCRUDRepository):
         return query.scalar()  # type: ignore
 
     async def read_user_by_password_authentication(self, account_login: AccountInLogin) -> Account:
-        stmt = sqlalchemy.select(Account).where(
-            Account.username == account_login.username, Account.email == account_login.email
-        )
+        stmt = sqlalchemy.select(Account).where(Account.email == account_login.email)
         query = await self.async_session.execute(statement=stmt)
         db_account = query.scalar()
 
         if not db_account:
-            raise EntityDoesNotExist("Wrong username or wrong email!")
+            raise EntityDoesNotExist(f"Wrong email! User asked {account_login.email}!")
 
         if not pwd_generator.is_password_authenticated(hash_salt=db_account.hash_salt, password=account_login.password, hashed_password=db_account.hashed_password):  # type: ignore
             raise PasswordDoesNotMatch("Password does not match!")
