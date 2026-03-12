@@ -40,7 +40,7 @@ class AccountCRUDRepository(BaseCRUDRepository):
         query = await self.async_session.execute(statement=stmt)
 
         if not query:
-            raise EntityDoesNotExist("Account with id `{id}` does not exist!")
+            raise EntityDoesNotExist(f"Account with id `{id}` does not exist!")
 
         return query.scalar()  # type: ignore
 
@@ -49,7 +49,7 @@ class AccountCRUDRepository(BaseCRUDRepository):
         query = await self.async_session.execute(statement=stmt)
 
         if not query:
-            raise EntityDoesNotExist("Account with username `{username}` does not exist!")
+            raise EntityDoesNotExist(f"Account with username `{username}` does not exist!")
 
         return query.scalar()  # type: ignore
 
@@ -58,7 +58,7 @@ class AccountCRUDRepository(BaseCRUDRepository):
         query = await self.async_session.execute(statement=stmt)
 
         if not query:
-            raise EntityDoesNotExist("Account with email `{email}` does not exist!")
+            raise EntityDoesNotExist(f"Account with email `{email}` does not exist!")
 
         return query.scalar()  # type: ignore
 
@@ -76,7 +76,7 @@ class AccountCRUDRepository(BaseCRUDRepository):
         return db_account  # type: ignore
 
     async def update_account_by_id(self, id: int, account_update: AccountInUpdate) -> Account:
-        new_account_data = account_update.dict()
+        new_account_data = account_update.model_dump()
 
         select_stmt = sqlalchemy.select(Account).where(Account.id == id)
         query = await self.async_session.execute(statement=select_stmt)
@@ -91,7 +91,7 @@ class AccountCRUDRepository(BaseCRUDRepository):
             update_stmt = update_stmt.values(username=new_account_data["username"])
 
         if new_account_data["email"]:
-            update_stmt = update_stmt.values(username=new_account_data["email"])
+            update_stmt = update_stmt.values(email=new_account_data["email"])
 
         if new_account_data["password"]:
             update_account.set_hash_salt(hash_salt=pwd_generator.generate_salt)  # type: ignore
@@ -153,8 +153,13 @@ class AccountCRUDRepository(BaseCRUDRepository):
         return account  # type: ignore
 
     async def set_verification_code(self, account: Account, code: str) -> None:
-        account.set_verification_code(code=code)
-        account.verification_code_expires_at = datetime.datetime.utcnow() + datetime.timedelta(minutes=10)
+        hashed_code = pwd_generator.generate_hashed_password(
+            hash_salt=account.hash_salt, new_password=code  # type: ignore
+        )
+        account.set_verification_code(code=hashed_code)
+        account.verification_code_expires_at = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(
+            minutes=10
+        )
         await self.async_session.commit()
         await self.async_session.refresh(instance=account)
 
@@ -166,11 +171,18 @@ class AccountCRUDRepository(BaseCRUDRepository):
         if not db_account:
             raise EntityDoesNotExist(f"Account with email `{email}` does not exist!")
 
-        if (
-            db_account.verification_code != code
-            or db_account.verification_code_expires_at is None
-            or datetime.datetime.utcnow() > db_account.verification_code_expires_at
-        ):
+        code_expired = (
+            db_account.verification_code_expires_at is None
+            or datetime.datetime.now(datetime.timezone.utc) > db_account.verification_code_expires_at.replace(
+                tzinfo=datetime.timezone.utc
+            )
+        )
+        code_invalid = db_account.verification_code is None or not pwd_generator.is_password_authenticated(
+            hash_salt=db_account.hash_salt,  # type: ignore
+            password=code,
+            hashed_password=db_account.verification_code,
+        )
+        if code_invalid or code_expired:
             raise ValueError("Invalid or expired verification code.")
 
         db_account.is_verified = True

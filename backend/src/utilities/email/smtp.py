@@ -3,6 +3,8 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
+import loguru
+
 from src.config.manager import settings
 
 
@@ -30,7 +32,11 @@ def _send_email_sync(recipient_email: str, code: str) -> None:
     msg.attach(MIMEText(body, "plain", "utf-8"))
     msg.attach(MIMEText(html_body, "html", "utf-8"))
 
-    with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
-        server.starttls()
-        server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
-        server.sendmail(settings.SMTP_SENDER_EMAIL, recipient_email, msg.as_string())
+    try:
+        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
+            server.starttls()
+            server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
+            server.sendmail(settings.SMTP_SENDER_EMAIL, recipient_email, msg.as_string())
+    except smtplib.SMTPException as exc:
+        loguru.logger.error(f"Failed to send verification email to {recipient_email}: {exc}")
+        raise RuntimeError("Email delivery failed. Please try again later.") from exc

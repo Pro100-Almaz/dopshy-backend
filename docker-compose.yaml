@@ -80,9 +80,10 @@ services:
       - ./backend/:/usr/backend/
     expose:
       - 8000
-    # Remove or restrict this port in production — nginx is the public entry point.
-    ports:
-      - 8001:8000
+    # Port 8001 is intentionally NOT published here — nginx is the only public entry point.
+    # Uncomment the lines below only for local development without nginx:
+    # ports:
+    #   - 8001:8000
     depends_on:
       - db
 

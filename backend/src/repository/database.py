@@ -26,10 +26,6 @@ class AsyncDatabase:
             database=settings.DB_POSTGRES_NAME,
         )
 
-        print('*'*10)
-        print(settings.DB_POSTGRES_PASSWORD)
-        print('*'*10)
-
         self.async_engine: SQLAlchemyAsyncEngine = create_sqlalchemy_async_engine(
             url=self.postgres_url,
             echo=settings.IS_DB_ECHO_LOG,

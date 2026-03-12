@@ -22,12 +22,12 @@ class JWTGenerator:
         to_encode = jwt_data.copy()
 
         if expires_delta:
-            expire = datetime.datetime.utcnow() + expires_delta
+            expire = datetime.datetime.now(datetime.timezone.utc) + expires_delta
 
         else:
-            expire = datetime.datetime.utcnow() + datetime.timedelta(minutes=settings.JWT_MIN)
+            expire = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(minutes=settings.JWT_MIN)
 
-        to_encode.update(JWToken(exp=expire, sub=settings.JWT_SUBJECT).dict())
+        to_encode.update(JWToken(exp=expire, sub=settings.JWT_SUBJECT).model_dump())
 
         return jose_jwt.encode(to_encode, key=settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 

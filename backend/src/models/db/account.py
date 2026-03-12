@@ -19,10 +19,10 @@ class Account(Base):  # type: ignore
     _hashed_password: SQLAlchemyMapped[str] = sqlalchemy_mapped_column(sqlalchemy.String(length=1024), nullable=True)
     _hash_salt: SQLAlchemyMapped[str] = sqlalchemy_mapped_column(sqlalchemy.String(length=1024), nullable=True)
     _verification_code: SQLAlchemyMapped[str | None] = sqlalchemy_mapped_column(
-        sqlalchemy.String(length=6), nullable=True
+        sqlalchemy.String(length=1024), nullable=True
     )
     verification_code_expires_at: SQLAlchemyMapped[datetime.datetime | None] = sqlalchemy_mapped_column(
-        sqlalchemy.DateTime(timezone=False), nullable=True
+        sqlalchemy.DateTime(timezone=True), nullable=True
     )
     role: SQLAlchemyMapped[str] = sqlalchemy_mapped_column(
         sqlalchemy.String(length=16), nullable=False, default=Role.CLIENT.value

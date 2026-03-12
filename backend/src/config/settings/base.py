@@ -87,6 +87,7 @@ class BackendBaseSettings(BaseSettings):
         case_sensitive=True,
         env_file=f"{str(ROOT_DIR)}/.env",
         validate_assignment=True,
+        extra="ignore",
     )
 
     @property

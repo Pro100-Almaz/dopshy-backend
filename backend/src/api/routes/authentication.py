@@ -45,7 +45,7 @@ async def signup(
     path="/signin",
     name="auth:signin",
     response_model=AccountInResponse,
-    status_code=fastapi.status.HTTP_202_ACCEPTED,
+    status_code=fastapi.status.HTTP_200_OK,
 )
 async def signin(
     account_login: AccountInLogin,

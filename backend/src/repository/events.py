@@ -14,22 +14,21 @@ from src.repository.table import Base
 def inspect_db_server_on_connection(
     db_api_connection: AsyncAdapt_asyncpg_connection, connection_record: _ConnectionRecord
 ) -> None:
-    loguru.logger.info(f"New DB API Connection ---\n {db_api_connection}")
-    loguru.logger.info(f"Connection Record ---\n {connection_record}")
+    loguru.logger.debug(f"New DB API Connection ---\n {db_api_connection}")
+    loguru.logger.debug(f"Connection Record ---\n {connection_record}")
 
 
 @event.listens_for(target=async_db.async_engine.sync_engine, identifier="close")
 def inspect_db_server_on_close(
     db_api_connection: AsyncAdapt_asyncpg_connection, connection_record: _ConnectionRecord
 ) -> None:
-    loguru.logger.info(f"Closing DB API Connection ---\n {db_api_connection}")
-    loguru.logger.info(f"Closed Connection Record ---\n {connection_record}")
+    loguru.logger.debug(f"Closing DB API Connection ---\n {db_api_connection}")
+    loguru.logger.debug(f"Closed Connection Record ---\n {connection_record}")
 
 
 async def initialize_db_tables(connection: AsyncConnection) -> None:
     loguru.logger.info("Database Table Creation --- Initializing . . .")
 
-    await connection.run_sync(Base.metadata.drop_all)
     await connection.run_sync(Base.metadata.create_all)
 
     loguru.logger.info("Database Table Creation --- Successfully Initialized!")
