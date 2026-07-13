@@ -48,6 +48,7 @@ class BackendBaseSettings(BaseSettings):
     JWT_DAY: int = decouple.config("JWT_DAY", cast=int)  # type: ignore
     JWT_ACCESS_TOKEN_EXPIRATION_TIME: int = JWT_MIN * JWT_HOUR * JWT_DAY
 
+    BOT_URL: str = decouple.config("BOT_URL", cast=str)
     IS_ALLOWED_CREDENTIALS: bool = decouple.config("IS_ALLOWED_CREDENTIALS", cast=bool)  # type: ignore
     ALLOWED_ORIGINS: list[str] = [
         "http://localhost:3000",  # React default port

@@ -5,6 +5,7 @@ import decouple
 import fastapi
 import httpx
 
+from src.config.manager import settings
 from src.models.db.account import Account
 from src.models.enums.booking import BookingSource, BookingStatus
 from src.models.enums.role import Role
@@ -102,7 +103,7 @@ class BookingService:
         return BookingDetailOut.model_validate(booking)
 
     async def get_all_bookings(self) -> list[BotBookingRaw] | None:
-        base_url = decouple.config("BOT_URL")
+        base_url = settings.BOT_URL
         if not base_url:
             raise fastapi.HTTPException(
                 status_code=fastapi.status.HTTP_502_BAD_GATEWAY,
