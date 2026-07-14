@@ -11,7 +11,7 @@ from src.models.schemas.booking import (
     BookingInCreateAuthenticated,
     BookingInCreateByManager,
     BookingOut,
-    BookingStatusUpdate, BotBookingRaw,
+    BookingStatusUpdate, BotBookingRaw, BookingInUpdate,
 )
 from src.services.booking import BookingService
 from src.utilities.exceptions.database import EntityDoesNotExist
@@ -143,6 +143,27 @@ async def get_booking_detail(
 
 
 @router.patch(
+    path="/{id}",
+    name="bookings:update-detail",
+    status_code=fastapi.status.HTTP_200_OK,
+)
+async def update_booking_detail(
+        id: int,
+        payload: BookingInUpdate,
+    booking_service: BookingService = fastapi.Depends(get_booking_service),
+) -> dict:
+    try:
+        print('xxxxxxx')
+        print(payload)
+        return await booking_service.update_booking(
+            booking_id=id, payload=payload
+        )
+    except EntityDoesNotExist:
+        raise await http_404_exc_booking_not_found_request(id=id)
+
+
+
+@router.patch(
     path="/{id}/status",
     name="bookings:update-status",
     response_model=BookingDetailOut,
@@ -160,3 +181,4 @@ async def update_booking_status(
         )
     except EntityDoesNotExist:
         raise await http_404_exc_booking_not_found_request(id=id)
+

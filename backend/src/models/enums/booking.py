@@ -2,9 +2,12 @@ import enum
 
 
 class BookingStatus(str, enum.Enum):
+    DRAFT = "draft"
+    AWAITING_PAYMENT = "awaiting_payment"
     PENDING = "pending"
     CONFIRMED = "confirmed"
-    DECLINED = "declined"
+    UNPAID = "unpaid"
+    REJECTED = "rejected"
     CANCELLED = "cancelled"
     COMPLETED = "completed"
 

@@ -17,7 +17,7 @@ from src.models.schemas.booking import (
     BookingInCreateByManager,
     BookingOut,
     BookingStatusUpdate,
-    BotBookingRaw,
+    BotBookingRaw, BookingInUpdate,
 )
 from src.repository.crud.booking import BookingCRUDRepository
 from src.repository.crud.field import FieldCRUDRepository
@@ -214,6 +214,51 @@ class BookingService:
         if not is_staff and booking.account_id != current_account.id:
             raise fastapi.HTTPException(status_code=fastapi.status.HTTP_403_FORBIDDEN, detail="Access denied")
         return BookingDetailOut.model_validate(booking)
+
+
+    async def update_booking(self, booking_id: int, payload: BookingInUpdate):
+        base_url = settings.BOT_URL
+        if not base_url:
+            raise fastapi.HTTPException(
+                status_code=fastapi.status.HTTP_502_BAD_GATEWAY,
+                detail="BOT_URL is not configured.",
+            )
+        url = base_url.rstrip("/") + f"/api/manager/bookings/{booking_id}"
+
+        body = payload.model_dump(mode="json", exclude_none=True)
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            try:
+                response = await client.patch(
+                    url,
+                    headers={
+                        "Content-Type": "application/json",
+                        "Accept": "application/json",
+                        "X-API-KEY": os.getenv("MANAGER_API_KEY") or "",
+                    },
+                    json=body,
+                )
+            except httpx.HTTPError as exc:
+                raise fastapi.HTTPException(
+                    status_code=fastapi.status.HTTP_502_BAD_GATEWAY,
+                    detail="Failed to reach the bot service.",
+                ) from exc
+
+        if response.status_code >= 400:
+            raise fastapi.HTTPException(
+                status_code=fastapi.status.HTTP_502_BAD_GATEWAY,
+                detail=f"Bot service returned {response.status_code}: {response.text[:200]}",
+            )
+
+        try:
+            data = response.json()
+        except ValueError as exc:
+            raise fastapi.HTTPException(
+                status_code=fastapi.status.HTTP_502_BAD_GATEWAY,
+                detail="Bot service returned a non-JSON response.",
+            ) from exc
+
+        return data
+
 
     async def change_booking_status(
         self, booking_id: int, payload: BookingStatusUpdate, current_account: Account

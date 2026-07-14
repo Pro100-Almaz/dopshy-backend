@@ -58,6 +58,15 @@ class BookingInCreateByManager(pydantic.BaseModel):
     duration_hours: int = pydantic.Field(ge=1)
     internal_note: str | None = None
 
+class BookingInUpdate(pydantic.BaseModel):
+
+    field_id: int | None = None
+    customer_name: str | None = None
+    time_start: datetime.time | None = None
+    time_end: datetime.time | None = None
+    date: datetime.date | None = None
+    end_date: datetime.date | None = None
+    status: BookingStatus | None = None
 
 class BatchSlotIn(pydantic.BaseModel):
 
