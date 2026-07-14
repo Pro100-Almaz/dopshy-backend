@@ -4,7 +4,8 @@ from src.api.dependencies.auth import get_current_user, require_roles
 from src.api.dependencies.service import get_field_service
 from src.models.db.account import Account
 from src.models.enums.role import Role
-from src.models.schemas.field import FieldInCreate, FieldInUpdate, FieldListOut, FieldOut, PricingRuleIn
+from src.models.schemas.field import FieldInCreate, FieldInUpdate, FieldListOut, FieldOut, PricingRuleIn, \
+    BotFieldResponse
 from src.services.field import FieldService
 from src.utilities.exceptions.database import EntityDoesNotExist
 from src.utilities.exceptions.http.exc_404 import http_404_exc_field_not_found_request
@@ -29,14 +30,13 @@ async def create_field(
 @router.get(
     path="",
     name="fields:list-fields",
-    response_model=list[FieldListOut],
+    response_model=BotFieldResponse,
     status_code=fastapi.status.HTTP_200_OK,
 )
 async def list_fields(
-    include_inactive: bool = False,
     field_service: FieldService = fastapi.Depends(get_field_service),
-) -> list[FieldListOut]:
-    return await field_service.get_fields(include_inactive=include_inactive)
+) -> BotFieldResponse:
+    return await field_service.get_fields()
 
 
 @router.get(

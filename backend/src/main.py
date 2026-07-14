@@ -1,6 +1,9 @@
+import pathlib
+
 import fastapi
 import uvicorn
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from src.api.endpoints import router as api_endpoint_router
 from src.config.events import execute_backend_server_event_handler, terminate_backend_server_event_handler
@@ -28,6 +31,10 @@ def initialize_backend_application() -> fastapi.FastAPI:
     )
 
     app.include_router(router=api_endpoint_router, prefix=settings.API_PREFIX)
+
+    media_directory = pathlib.Path(__file__).resolve().parent.parent / "media"
+    media_directory.mkdir(exist_ok=True)
+    app.mount("/media", StaticFiles(directory=media_directory), name="media")
 
     return app
 
