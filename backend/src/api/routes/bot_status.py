@@ -26,6 +26,18 @@ async def batch_bot_status(
 
 
 @router.get(
+    path="/contacts",
+    name="bot-status:contacts",
+    status_code=fastapi.status.HTTP_200_OK,
+)
+async def list_bot_contacts(
+    _: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.MANAGER)),
+    bot_status_service: BotStatusService = fastapi.Depends(get_bot_status_service),
+) -> typing.Any:
+    return await bot_status_service.list_contacts()
+
+
+@router.get(
     path="/{phone}",
     name="bot-status:get",
     status_code=fastapi.status.HTTP_200_OK,

@@ -82,3 +82,9 @@ class BotStatusService:
         body = payload.model_dump(mode="json")
         response = await self._request("POST", "/api/manager/bot_status/batch", json=body)
         return self._json(response)
+
+    async def list_contacts(self) -> typing.Any:
+        """Unified customer list from the bot: WhatsApp texters + bookers, each
+        with live pause status. Returned as-is from the bot service."""
+        response = await self._request("GET", "/api/manager/contacts")
+        return self._json(response)
