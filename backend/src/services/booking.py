@@ -1,7 +1,11 @@
 import datetime
+import os
 
+import decouple
 import fastapi
+import httpx
 
+from src.config.manager import settings
 from src.models.db.account import Account
 from src.models.enums.booking import BookingSource, BookingStatus
 from src.models.enums.role import Role
@@ -12,6 +16,7 @@ from src.models.schemas.booking import (
     BookingInCreateByManager,
     BookingOut,
     BookingStatusUpdate,
+    BotBookingRaw,
 )
 from src.repository.crud.booking import BookingCRUDRepository
 from src.repository.crud.field import FieldCRUDRepository
@@ -97,9 +102,34 @@ class BookingService:
         )
         return BookingDetailOut.model_validate(booking)
 
-    async def get_all_bookings(self, status: str | None = None) -> list[BookingOut]:
-        bookings = await self.booking_repo.read_bookings(status=status)
-        return [BookingOut.model_validate(b) for b in bookings]
+    async def get_all_bookings(self) -> list[BotBookingRaw] | None:
+        base_url = settings.BOT_URL
+        if not base_url:
+            raise fastapi.HTTPException(
+                status_code=fastapi.status.HTTP_502_BAD_GATEWAY,
+                detail=", BOT_URL is not configured.",
+            )
+
+        url = base_url.rstrip("/") + "/api/manager/bookings/all"
+
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            try:
+                response = await client.get(url, headers={"Content-Type": "application/json", "Accept": "application/json", "X-API-KEY": os.getenv("MANAGER_API_KEY") or ""})
+                response.raise_for_status()
+            except httpx.HTTPError as exc:
+                raise fastapi.HTTPException(
+                    status_code=fastapi.status.HTTP_502_BAD_GATEWAY,
+                    detail="Failed to fetch bookings from the bot service.",
+                ) from exc
+
+        payload = response.json()
+        if isinstance(payload, dict):
+            bookings = payload.get("data") or payload.get("bookings") or payload.get("results") or []
+        else:
+            bookings = payload
+
+        data = [BotBookingRaw.model_validate(b) for b in bookings]
+        return data
 
     async def get_my_bookings(self, current_account: Account) -> list[BookingOut]:
         bookings = await self.booking_repo.read_bookings(account_id=current_account.id)

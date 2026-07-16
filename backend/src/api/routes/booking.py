@@ -10,7 +10,7 @@ from src.models.schemas.booking import (
     BookingInCreateAuthenticated,
     BookingInCreateByManager,
     BookingOut,
-    BookingStatusUpdate,
+    BookingStatusUpdate, BotBookingRaw,
 )
 from src.services.booking import BookingService
 from src.utilities.exceptions.database import EntityDoesNotExist
@@ -72,15 +72,14 @@ async def create_manager_booking(
 @router.get(
     path="",
     name="bookings:list-all",
-    response_model=list[BookingOut],
+    response_model=list[BotBookingRaw | None],
     status_code=fastapi.status.HTTP_200_OK,
 )
 async def list_all_bookings(
-    status: str | None = None,
     _: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.MANAGER)),
     booking_service: BookingService = fastapi.Depends(get_booking_service),
-) -> list[BookingOut]:
-    return await booking_service.get_all_bookings(status=status)
+) -> list[BotBookingRaw | None]:
+    return await booking_service.get_all_bookings()
 
 
 @router.get(

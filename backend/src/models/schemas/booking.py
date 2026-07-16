@@ -77,6 +77,8 @@ class BookingOut(pydantic.BaseModel):
     status: str
     source: str
     created_at: datetime.datetime
+    notes: str | None = None
+    updated_at: datetime.datetime | None
 
     model_config = pydantic.ConfigDict(from_attributes=True)
 
@@ -84,3 +86,47 @@ class BookingOut(pydantic.BaseModel):
 class BookingDetailOut(BookingOut):
     internal_note: str | None
     status_history: list[BookingStatusHistoryOut] = []
+
+
+class BotBookingRaw(pydantic.BaseModel):
+    """Raw booking row as returned by the bot service's get_all_bookings()."""
+    id: int
+    field: int
+    customer_name: str | None = None
+    phone: str | None = None
+    time_start: datetime.time
+    time_end: datetime.time
+    payment_current: decimal.Decimal
+    price_total: decimal.Decimal
+    state: str
+    source: str
+    notes: str | None
+    date: datetime.date
+    created_at: datetime.datetime
+    updated_at: datetime.datetime | None = None
+
+    model_config = pydantic.ConfigDict(extra="ignore")
+
+    def to_booking_out(self) -> BookingOut:
+        duration = self.time_end - self.time_start
+        duration_hours = max(1, round(duration.total_seconds() / 3600))
+        return BookingOut(
+            id=self.id,
+            field_id=self.field,
+            account_id=None,
+            guest_name=self.customer_name,
+            guest_phone=self.phone,
+            guest_email=None,
+            date=self.date,
+            start_datetime=self.time_start,
+            duration_hours=duration_hours,
+            payment_current=self.payment_current,
+            total_price=self.price_total,
+            status=self.state,
+            source=self.source,
+            notes=self.notes,
+            updated_at=self.updated_at,
+            created_at=self.created_at,
+        )
+
+
