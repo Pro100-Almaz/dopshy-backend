@@ -59,6 +59,27 @@ class BookingInCreateByManager(pydantic.BaseModel):
     internal_note: str | None = None
 
 
+class BatchSlotIn(pydantic.BaseModel):
+
+    field: int = pydantic.Field(gt=0)
+    date: str = pydantic.Field(min_length=1)         # "2026-07-20"
+    time_start: str = pydantic.Field(min_length=1)   # "10:00"
+    time_end: str = pydantic.Field(min_length=1)     # "11:00"
+
+
+class BookingBatchInCreate(pydantic.BaseModel):
+    """Batch booking body proxied to the bot's POST /api/manager/bookings/batch.
+    """
+
+    slots: list[BatchSlotIn] = pydantic.Field(min_length=1)
+    customer: str | None = None
+    phone: str | None = None
+    notes: str | None = None
+    price_total: decimal.Decimal | None = None
+    reserved_until: int | None = None
+    updated_by: str | None = None
+
+
 class BookingStatusUpdate(pydantic.BaseModel):
     status: BookingStatus
     comment: str | None = None
@@ -71,7 +92,7 @@ class BookingOut(pydantic.BaseModel):
     guest_name: str | None
     guest_phone: str | None
     guest_email: str | None
-    start_datetime: datetime.datetime
+    start_datetime: datetime.time
     duration_hours: int
     total_price: decimal.Decimal
     status: str
@@ -89,20 +110,24 @@ class BookingDetailOut(BookingOut):
 
 
 class BotBookingRaw(pydantic.BaseModel):
-    """Raw booking row as returned by the bot service's get_all_bookings()."""
+    """Raw booking row as returned by the bot service.
+    """
     id: int
     field: int
     customer_name: str | None = None
     phone: str | None = None
     time_start: datetime.time
     time_end: datetime.time
-    payment_current: decimal.Decimal
+    payment_current: decimal.Decimal | None = None
     price_total: decimal.Decimal
     state: str
     source: str
-    notes: str | None
+    notes: str | None = None
     date: datetime.date
-    created_at: datetime.datetime
+    reserved_until: str | None = None
+    paid_kaspi_qr: decimal.Decimal | None = None
+    paid_cash: decimal.Decimal | None = None
+    created_at: datetime.datetime | None = None
     updated_at: datetime.datetime | None = None
 
     model_config = pydantic.ConfigDict(extra="ignore")
@@ -117,16 +142,13 @@ class BotBookingRaw(pydantic.BaseModel):
             guest_name=self.customer_name,
             guest_phone=self.phone,
             guest_email=None,
-            date=self.date,
             start_datetime=self.time_start,
             duration_hours=duration_hours,
-            payment_current=self.payment_current,
             total_price=self.price_total,
             status=self.state,
             source=self.source,
             notes=self.notes,
-            updated_at=self.updated_at,
             created_at=self.created_at,
+            updated_at=self.updated_at,
         )
-
 

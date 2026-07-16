@@ -5,6 +5,7 @@ from src.api.dependencies.service import get_booking_service
 from src.models.db.account import Account
 from src.models.enums.role import Role
 from src.models.schemas.booking import (
+    BookingBatchInCreate,
     BookingDetailOut,
     BookingInCreate,
     BookingInCreateAuthenticated,
@@ -69,6 +70,18 @@ async def create_manager_booking(
         raise await http_404_exc_field_not_found_request(id=payload.field_id)
 
 
+@router.post(
+    path="/batch",
+    name="bookings:create-batch",
+)
+async def create_bookings_batch(
+    payload: BookingBatchInCreate,
+    booking_service: BookingService = fastapi.Depends(get_booking_service),
+) -> fastapi.Response:
+    status_code, data = await booking_service.create_bookings_batch(payload=payload)
+    return fastapi.responses.JSONResponse(status_code=status_code, content=data)
+
+
 @router.get(
     path="",
     name="bookings:list-all",
@@ -78,8 +91,25 @@ async def create_manager_booking(
 async def list_all_bookings(
     _: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.MANAGER)),
     booking_service: BookingService = fastapi.Depends(get_booking_service),
-) -> list[BotBookingRaw | None]:
+) -> list[BotBookingRaw] | None:
     return await booking_service.get_all_bookings()
+
+
+@router.get(
+    path="/range/{start_date}/{end_date}/{field}",
+    name="bookings:list-range",
+    response_model=list[BotBookingRaw | None],
+    status_code=fastapi.status.HTTP_200_OK,
+)
+async def list_bookings_in_range(
+        start_date: str,
+        end_date: str,
+        field: int,
+        booking_service: BookingService = fastapi.Depends(get_booking_service),
+) -> list[BotBookingRaw] | None:
+    return await booking_service.get_bookings_in_range(
+        start_date=start_date, end_date=end_date, field=field
+    )
 
 
 @router.get(

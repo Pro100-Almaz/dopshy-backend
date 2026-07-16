@@ -1,7 +1,13 @@
+import os
 import typing
 
+import fastapi
+import httpx
+
+from src.config.manager import settings
 from src.models.db.field import Field
-from src.models.schemas.field import FieldInCreate, FieldInUpdate, FieldListOut, FieldOut, PricingRuleIn, PricingRuleOut
+from src.models.schemas.field import FieldInCreate, FieldInUpdate, FieldListOut, FieldOut, PricingRuleIn, \
+    PricingRuleOut, BotPriceRow, BotFieldRow, BotFieldResponse
 from src.repository.crud.field import FieldCRUDRepository
 
 
@@ -28,9 +34,37 @@ class FieldService:
         field = await self.field_repo.create_field(field_create=field_create)
         return self._to_field_out(field)
 
-    async def get_fields(self, include_inactive: bool = False) -> list[FieldListOut]:
-        fields = await self.field_repo.read_fields(include_inactive=include_inactive)
-        return [FieldListOut.model_validate(f) for f in fields]
+
+    async def get_fields(self) -> BotFieldResponse:
+        base_url = settings.BOT_URL
+        if not base_url:
+            raise fastapi.HTTPException(
+                status_code=fastapi.status.HTTP_502_BAD_GATEWAY,
+                detail=", BOT_URL is not configured.",
+            )
+
+        url = base_url.rstrip("/") + "/api/manager/fields"
+
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            try:
+                response = await client.get(url, headers={"Content-Type": "application/json", "Accept": "application/json", "X-API-KEY": os.getenv("MANAGER_API_KEY") or ""})
+                response.raise_for_status()
+            except httpx.HTTPError as exc:
+                raise fastapi.HTTPException(
+                    status_code=fastapi.status.HTTP_502_BAD_GATEWAY,
+                    detail="Failed to fetch bookings from the bot service.",
+                ) from exc
+
+        payload = response.json()
+        prices = payload.get("data").get("prices") or []
+        fields = payload.get("data").get("fields") or []
+
+        prices_data = [BotPriceRow.model_validate(p) for p in prices]
+        fields_data = [BotFieldRow.model_validate(f) for f in fields]
+
+        data = BotFieldResponse.model_validate(dict(prices=prices_data, fields=fields_data))
+        return data
+
 
     async def get_field_by_id(self, id: int) -> FieldOut:
         field = await self.field_repo.read_field_by_id(id=id)

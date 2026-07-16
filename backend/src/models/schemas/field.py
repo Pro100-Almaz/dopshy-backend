@@ -59,3 +59,19 @@ class FieldListOut(pydantic.BaseModel):
     is_active: bool
 
     model_config = pydantic.ConfigDict(from_attributes=True)
+
+class BotPriceRow(pydantic.BaseModel):
+    format_name: str
+    pricing_type: str
+    price_per_hour: decimal.Decimal
+
+class BotFieldRow(pydantic.BaseModel):
+    id: int
+    name: str
+    description: str | None
+    format: str
+    capacity: str | None
+
+class BotFieldResponse(pydantic.BaseModel):
+    prices: list[BotPriceRow]
+    fields: list[BotFieldRow]
