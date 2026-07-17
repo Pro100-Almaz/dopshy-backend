@@ -1,4 +1,3 @@
-import os
 import typing
 
 import fastapi
@@ -47,7 +46,7 @@ class FieldService:
 
         async with httpx.AsyncClient(timeout=10.0) as client:
             try:
-                response = await client.get(url, headers={"Content-Type": "application/json", "Accept": "application/json", "X-API-KEY": os.getenv("MANAGER_API_KEY") or ""})
+                response = await client.get(url, headers={"Content-Type": "application/json", "Accept": "application/json", "X-API-KEY": settings.MANAGER_API_KEY})
                 response.raise_for_status()
             except httpx.HTTPError as exc:
                 raise fastapi.HTTPException(
