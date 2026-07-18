@@ -67,6 +67,9 @@ class BookingInUpdate(pydantic.BaseModel):
     date: datetime.date | None = None
     end_date: datetime.date | None = None
     status: BookingStatus | None = None
+    paid_kaspi_qr: decimal.Decimal | None = None
+    paid_cash: decimal.Decimal | None = None
+    paid_avans: decimal.Decimal | None = None
 
 class BatchSlotIn(pydantic.BaseModel):
 
@@ -85,8 +88,10 @@ class BookingBatchInCreate(pydantic.BaseModel):
     phone: str | None = None
     notes: str | None = None
     price_total: decimal.Decimal | None = None
+    prepayment: decimal.Decimal | None = None
     reserved_until: int | None = None
     updated_by: str | None = None
+
 
 
 class BookingStatusUpdate(pydantic.BaseModel):
@@ -122,24 +127,41 @@ class BotBookingRaw(pydantic.BaseModel):
     """Raw booking row as returned by the bot service.
     """
     id: int
-    field: int
+    field: int | None = None
     customer_name: str | None = None
     phone: str | None = None
-    time_start: datetime.time
-    time_end: datetime.time
-    payment_current: decimal.Decimal | None = None
-    price_total: decimal.Decimal
+    time_start: datetime.time | None = None
+    time_end: datetime.time | None = None
+    price_total: decimal.Decimal | None = None
     state: str
     source: str
     notes: str | None = None
-    date: datetime.date
+    date: datetime.date | None = None
     reserved_until: str | None = None
+    paid_bot: decimal.Decimal | None = None
     paid_kaspi_qr: decimal.Decimal | None = None
     paid_cash: decimal.Decimal | None = None
+    paid_avans: decimal.Decimal | None = None
     created_at: datetime.datetime | None = None
     updated_at: datetime.datetime | None = None
 
     model_config = pydantic.ConfigDict(extra="ignore")
+
+    @pydantic.field_validator(
+        "field",
+        "price_total",
+        "paid_bot",
+        "paid_kaspi_qr",
+        "paid_cash",
+        "paid_avans",
+        "time_start",
+        "time_end",
+        "date",
+        mode="before",
+    )
+    @classmethod
+    def _blank_to_none(cls, v: object) -> object:
+        return None if v == "" else v
 
     def to_booking_out(self) -> BookingOut:
         duration = self.time_end - self.time_start

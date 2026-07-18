@@ -1,4 +1,5 @@
 import datetime
+import os
 import typing
 
 import fastapi
@@ -153,8 +154,7 @@ class BookingService:
         payload = response.json()
         if isinstance(payload, dict):
             bookings = (
-                payload.get("date")
-                or payload.get("data")
+                payload.get("data")
                 or payload.get("bookings")
                 or payload.get("results")
                 or []
@@ -215,7 +215,10 @@ class BookingService:
         return BookingDetailOut.model_validate(booking)
 
 
-    async def update_booking(self, booking_id: int, payload: BookingInUpdate):
+    async def update_booking(self, booking_id: int, payload: BookingInUpdate, current_user: Account) -> dict[str, str]:
+        if current_user is None or current_user.role not in (Role.ADMIN.value, Role.MANAGER.value):
+            raise fastapi.HTTPException(status_code=fastapi.status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+
         base_url = settings.BOT_URL
         if not base_url:
             raise fastapi.HTTPException(
@@ -266,7 +269,7 @@ class BookingService:
         is_staff = current_account.role in (Role.ADMIN.value, Role.MANAGER.value)
         new_status = payload.status
 
-        if new_status in (BookingStatus.CONFIRMED, BookingStatus.DECLINED):
+        if new_status in (BookingStatus.CONFIRMED, BookingStatus.REJECTED):
             if not is_staff:
                 raise fastapi.HTTPException(
                     status_code=fastapi.status.HTTP_403_FORBIDDEN,

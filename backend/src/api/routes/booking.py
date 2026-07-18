@@ -150,13 +150,12 @@ async def get_booking_detail(
 async def update_booking_detail(
         id: int,
         payload: BookingInUpdate,
-    booking_service: BookingService = fastapi.Depends(get_booking_service),
+        current_user: Account = fastapi.Depends(get_current_user),
+        booking_service: BookingService = fastapi.Depends(get_booking_service),
 ) -> dict:
     try:
-        print('xxxxxxx')
-        print(payload)
         return await booking_service.update_booking(
-            booking_id=id, payload=payload
+            booking_id=id, payload=payload, current_user=current_user
         )
     except EntityDoesNotExist:
         raise await http_404_exc_booking_not_found_request(id=id)
