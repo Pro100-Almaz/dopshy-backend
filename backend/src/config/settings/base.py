@@ -48,7 +48,12 @@ class BackendBaseSettings(BaseSettings):
     JWT_DAY: int = decouple.config("JWT_DAY", cast=int)  # type: ignore
     JWT_ACCESS_TOKEN_EXPIRATION_TIME: int = JWT_MIN * JWT_HOUR * JWT_DAY
 
-    BOT_URL: str = decouple.config("BOT_URL", cast=str)
+    # Base URL of the WhatsApp-bot service. The backend calls the bot's
+    # `/api/manager/*` endpoints from `services/booking.py` and `services/field.py`.
+    BOT_URL: str = decouple.config("BOT_URL", cast=str, default="")  # type: ignore
+    # Shared service token presented to the bot as the `X-API-Key` header.
+    # Must match the bot's `X_SERVICE_TOKEN`.
+    MANAGER_API_KEY: str = decouple.config("MANAGER_API_KEY", cast=str, default="")  # type: ignore
     IS_ALLOWED_CREDENTIALS: bool = decouple.config("IS_ALLOWED_CREDENTIALS", cast=bool)  # type: ignore
     ALLOWED_ORIGINS: list[str] = [
         "http://localhost:3000",  # React default port
@@ -59,6 +64,8 @@ class BackendBaseSettings(BaseSettings):
         "http://0.0.0.0:5173",
         "http://127.0.0.1:5173",  # Qwik docker port
         "http://127.0.0.1:5174",
+        "https://www.dopsy.kz",
+        "https://dopsy.kz",
     ]
     ALLOWED_METHODS: list[str] = ["*"]
     ALLOWED_HEADERS: list[str] = ["*"]

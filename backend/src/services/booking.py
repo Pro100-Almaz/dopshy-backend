@@ -1,5 +1,4 @@
 import datetime
-import os
 import typing
 
 import fastapi
@@ -115,7 +114,7 @@ class BookingService:
 
         async with httpx.AsyncClient(timeout=10.0) as client:
             try:
-                response = await client.get(url, headers={"Content-Type": "application/json", "Accept": "application/json", "X-API-KEY": os.getenv("MANAGER_API_KEY") or ""})
+                response = await client.get(url, headers={"Content-Type": "application/json", "Accept": "application/json", "X-API-KEY": settings.MANAGER_API_KEY})
                 response.raise_for_status()
             except httpx.HTTPError as exc:
                 raise fastapi.HTTPException(
@@ -144,7 +143,7 @@ class BookingService:
         url = base_url.rstrip("/") + f"/api/manager/bookings/range/{start_date}/{end_date}/{field}"
         async with httpx.AsyncClient(timeout=10.0) as client:
             try:
-                response = await client.get(url, headers={"Content-Type": "application/json", "Accept": "application/json", "X-API-KEY": os.getenv("MANAGER_API_KEY") or ""})
+                response = await client.get(url, headers={"Content-Type": "application/json", "Accept": "application/json", "X-API-KEY": settings.MANAGER_API_KEY})
                 response.raise_for_status()
             except httpx.HTTPError as exc:
                 raise fastapi.HTTPException(status_code=fastapi.status.HTTP_502_BAD_GATEWAY,
@@ -183,7 +182,7 @@ class BookingService:
                     headers={
                         "Content-Type": "application/json",
                         "Accept": "application/json",
-                        "X-API-KEY": os.getenv("MANAGER_API_KEY") or "",
+                        "X-API-KEY": settings.MANAGER_API_KEY,
                     },
                     json=body,
                 )
