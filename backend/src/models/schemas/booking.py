@@ -3,7 +3,7 @@ import decimal
 
 import pydantic
 
-from src.models.enums.booking import BookingSource, BookingStatus
+from src.models.enums.booking import BookingSource, BookingStatus, RepeatMode
 
 
 class BookingStatusHistoryOut(pydantic.BaseModel):
@@ -74,9 +74,11 @@ class BookingInUpdate(pydantic.BaseModel):
 class BatchSlotIn(pydantic.BaseModel):
 
     field: int = pydantic.Field(gt=0)
-    date: str = pydantic.Field(min_length=1)         # "2026-07-20"
+    date: str = pydantic.Field(min_length=1)         # "2026-07-20" — first occurrence / start date
     time_start: str = pydantic.Field(min_length=1)   # "10:00"
-    time_end: str = pydantic.Field(min_length=1)     # "11:00"
+    time_end: str = pydantic.Field(min_length=1)     # "11:00"; may be "24:00" = end of day
+    repeat_mode: RepeatMode = RepeatMode.NONE        # "none" | "daily" | "weekly" | "monthly"
+    repeat_until: str | None = None                  # "yyyy-mm-dd"; required only when repeat_mode != "none"
 
 
 class BookingBatchInCreate(pydantic.BaseModel):

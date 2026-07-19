@@ -91,12 +91,13 @@ async def create_bookings_batch(
 async def list_all_bookings(
     _: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.MANAGER)),
     booking_service: BookingService = fastapi.Depends(get_booking_service),
+    page: int | None = fastapi.Query(default=None, ge=1),
 ) -> list[BotBookingRaw] | None:
-    return await booking_service.get_all_bookings()
+    return await booking_service.get_all_bookings(page=page)
 
 
 @router.get(
-    path="/range/{start_date}/{end_date}/{field}",
+    path="/range/{start_date}/{end_date}",
     name="bookings:list-range",
     response_model=list[BotBookingRaw | None],
     status_code=fastapi.status.HTTP_200_OK,
@@ -104,11 +105,12 @@ async def list_all_bookings(
 async def list_bookings_in_range(
         start_date: str,
         end_date: str,
-        field: int,
         booking_service: BookingService = fastapi.Depends(get_booking_service),
+        field: int | None = fastapi.Query(default=None, ge=1, le=3),
+        page: int | None = fastapi.Query(default=None, ge=1),
 ) -> list[BotBookingRaw] | None:
     return await booking_service.get_bookings_in_range(
-        start_date=start_date, end_date=end_date, field=field
+        start_date=start_date, end_date=end_date, field=field, page=page
     )
 
 
