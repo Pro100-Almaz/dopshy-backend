@@ -7,7 +7,7 @@ import httpx
 
 from src.config.manager import settings
 from src.models.db.account import Account
-from src.models.enums.booking import BookingSource, BookingStatus
+from src.models.enums.booking import BookingSource, BookingStatus, RepeatMode
 from src.models.enums.role import Role
 from src.models.schemas.booking import (
     BookingBatchInCreate,
@@ -103,7 +103,7 @@ class BookingService:
         )
         return BookingDetailOut.model_validate(booking)
 
-    async def get_all_bookings(self) -> list[BotBookingRaw] | None:
+    async def get_all_bookings(self, page : int | None = None) -> list[BotBookingRaw]:
         base_url = settings.BOT_URL
         if not base_url:
             raise fastapi.HTTPException(
@@ -113,9 +113,22 @@ class BookingService:
 
         url = base_url.rstrip("/") + "/api/manager/bookings/all"
 
+        params = {}
+        if page is not None:
+            params["page"] = page
+
+        headers = {
+            "Accept": "application/json",
+            "X-API-KEY": settings.MANAGER_API_KEY
+        }
+
         async with httpx.AsyncClient(timeout=10.0) as client:
             try:
-                response = await client.get(url, headers={"Content-Type": "application/json", "Accept": "application/json", "X-API-KEY": settings.MANAGER_API_KEY})
+                response = await client.get(
+                    url,
+                    headers=headers,
+                    params=params
+                )
                 response.raise_for_status()
             except httpx.HTTPError as exc:
                 raise fastapi.HTTPException(
@@ -133,18 +146,34 @@ class BookingService:
         return data
 
     async def get_bookings_in_range(
-        self, start_date: str, end_date: str, field: int
-    ) -> list[BotBookingRaw] | None:
+        self, start_date: str, end_date: str, field: int | None = None, page: int | None = None
+    ) -> list[BotBookingRaw]:
         base_url = settings.BOT_URL
         if not base_url:
             raise fastapi.HTTPException(
                 status_code=fastapi.status.HTTP_502_BAD_GATEWAY,
                 detail=", BOT_URL is not configured.",
             )
-        url = base_url.rstrip("/") + f"/api/manager/bookings/range/{start_date}/{end_date}/{field}"
+        url = base_url.rstrip("/") + f"/api/manager/bookings/range/{start_date}/{end_date}"
+
+        params = {}
+        if page is not None:
+            params["page"] = page
+        if field is not None:
+            params["field"] = field
+
+        headers = {
+            "Accept": "application/json",
+            "X-API-KEY": settings.MANAGER_API_KEY
+        }
+
         async with httpx.AsyncClient(timeout=10.0) as client:
             try:
-                response = await client.get(url, headers={"Content-Type": "application/json", "Accept": "application/json", "X-API-KEY": settings.MANAGER_API_KEY})
+                response = await client.get(
+                    url,
+                    headers=headers,
+                    params=params
+                )
                 response.raise_for_status()
             except httpx.HTTPError as exc:
                 raise fastapi.HTTPException(status_code=fastapi.status.HTTP_502_BAD_GATEWAY,
