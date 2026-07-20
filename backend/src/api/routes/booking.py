@@ -92,8 +92,9 @@ async def list_all_bookings(
     _: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.MANAGER)),
     booking_service: BookingService = fastapi.Depends(get_booking_service),
     page: int | None = fastapi.Query(default=None, ge=1),
+    search: str | None = fastapi.Query(default=None),
 ) -> list[BotBookingRaw] | None:
-    return await booking_service.get_all_bookings(page=page)
+    return await booking_service.get_all_bookings(page=page, search=search)
 
 
 @router.get(
@@ -108,9 +109,10 @@ async def list_bookings_in_range(
         booking_service: BookingService = fastapi.Depends(get_booking_service),
         field: int | None = fastapi.Query(default=None, ge=1, le=3),
         page: int | None = fastapi.Query(default=None, ge=1),
+        search: str | None = fastapi.Query(default=None),
 ) -> list[BotBookingRaw] | None:
     return await booking_service.get_bookings_in_range(
-        start_date=start_date, end_date=end_date, field=field, page=page
+        start_date=start_date, end_date=end_date, field=field, page=page, search=search
     )
 
 
