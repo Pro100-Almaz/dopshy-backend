@@ -90,7 +90,7 @@ class BookingBatchInCreate(pydantic.BaseModel):
     phone: str | None = None
     notes: str | None = None
     price_total: decimal.Decimal | None = None
-    prepayment: decimal.Decimal | None = None
+    prepayment: decimal.Decimal = 0
     reserved_until: int | None = None
     updated_by: str | None = None
 

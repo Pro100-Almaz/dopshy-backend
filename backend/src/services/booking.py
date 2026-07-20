@@ -104,7 +104,9 @@ class BookingService:
         )
         return BookingDetailOut.model_validate(booking)
 
-    async def get_all_bookings(self, page : int | None = None) -> list[BotBookingRaw]:
+    async def get_all_bookings(
+        self, page: int | None = None, search: str | None = None
+    ) -> list[BotBookingRaw]:
         base_url = settings.BOT_URL
         if not base_url:
             raise fastapi.HTTPException(
@@ -117,6 +119,8 @@ class BookingService:
         params = {}
         if page is not None:
             params["page"] = page
+        if search is not None:
+            params["search"] = search
 
         headers = {
             "Accept": "application/json",
@@ -147,7 +151,8 @@ class BookingService:
         return data
 
     async def get_bookings_in_range(
-        self, start_date: str, end_date: str, field: int | None = None, page: int | None = None
+        self, start_date: str, end_date: str, field: int | None = None,
+        page: int | None = None, search: str | None = None
     ) -> list[BotBookingRaw]:
         base_url = settings.BOT_URL
         if not base_url:
@@ -162,6 +167,8 @@ class BookingService:
             params["page"] = page
         if field is not None:
             params["field"] = field
+        if search is not None:
+            params["search"] = search
 
         headers = {
             "Accept": "application/json",
