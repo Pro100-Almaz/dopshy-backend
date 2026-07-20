@@ -130,16 +130,15 @@ async def list_my_bookings(
 @router.get(
     path="/{id}",
     name="bookings:get-detail",
-    response_model=BookingDetailOut,
     status_code=fastapi.status.HTTP_200_OK,
 )
 async def get_booking_detail(
     id: int,
-    current_user: Account = fastapi.Depends(get_current_user),
+    _: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.MANAGER)),
     booking_service: BookingService = fastapi.Depends(get_booking_service),
-) -> BookingDetailOut:
+) -> dict:
     try:
-        return await booking_service.get_booking_detail(booking_id=id, current_account=current_user)
+        return await booking_service.get_booking_detail(booking_id=id)
     except EntityDoesNotExist:
         raise await http_404_exc_booking_not_found_request(id=id)
 
