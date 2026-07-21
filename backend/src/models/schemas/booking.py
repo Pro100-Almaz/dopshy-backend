@@ -70,6 +70,7 @@ class BookingInUpdate(pydantic.BaseModel):
     paid_kaspi_qr: decimal.Decimal | None = None
     paid_cash: decimal.Decimal | None = None
     paid_avans: decimal.Decimal | None = None
+    source: str | None = None
 
 class BatchSlotIn(pydantic.BaseModel):
 
@@ -93,6 +94,7 @@ class BookingBatchInCreate(pydantic.BaseModel):
     prepayment: decimal.Decimal = 0
     reserved_until: int | None = None
     updated_by: str | None = None
+    source: str | None = None
 
 
 
