@@ -49,7 +49,7 @@ class BookingService:
             duration_hours=payload.duration_hours,
             total_price=total_price,
             status=BookingStatus.PENDING.value,
-            source=payload.source.value,
+            source=f"{payload.source.value}:{payload.guest_phone}",
             guest_name=payload.guest_name,
             guest_phone=payload.guest_phone,
             guest_email=payload.guest_email,
@@ -72,7 +72,7 @@ class BookingService:
             duration_hours=payload.duration_hours,
             total_price=total_price,
             status=BookingStatus.PENDING.value,
-            source=BookingSource.ACCOUNT.value,
+            source=f"{BookingSource.ACCOUNT.value}:{current_account.email}",
             account_id=current_account.id,
             internal_note=payload.internal_note,
             created_by_account_id=current_account.id,
@@ -94,7 +94,7 @@ class BookingService:
             duration_hours=payload.duration_hours,
             total_price=total_price,
             status=BookingStatus.PENDING.value,
-            source=BookingSource.MANAGER.value,
+            source=f"{BookingSource.MANAGER.value}:{manager_account.username}",
             account_id=payload.account_id,
             guest_name=payload.guest_name,
             guest_phone=payload.guest_phone,
@@ -202,7 +202,7 @@ class BookingService:
         booking_data = [BotBookingRaw.model_validate(b) for b in bookings]
         return booking_data
 
-    async def create_bookings_batch(self, payload: BookingBatchInCreate) -> tuple[int, typing.Any]:
+    async def create_bookings_batch(self, payload: BookingBatchInCreate, current_user: Account) -> tuple[int, typing.Any]:
         base_url = settings.BOT_URL
         if not base_url:
             raise fastapi.HTTPException(
@@ -210,6 +210,13 @@ class BookingService:
                 detail="BOT_URL is not configured.",
             )
         url = base_url.rstrip("/") + "/api/manager/bookings/batch"
+
+        if current_user is None:
+            payload.source = f"{BookingSource.LANDING.value}:{payload.phone}"
+        elif current_user.role in (Role.ADMIN.value, Role.MANAGER.value):
+            payload.source = f"{BookingSource.MANAGER.value}:{current_user.username}"
+        else:
+            payload.source = f"{BookingSource.ACCOUNT.value}:{current_user.email}"
 
         body = payload.model_dump(mode="json", exclude_none=True)
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -312,6 +319,7 @@ class BookingService:
             )
         url = base_url.rstrip("/") + f"/api/manager/bookings/{booking_id}"
 
+        payload.source = f"{BookingSource.MANAGER.value}:{current_user.username}"
         body = payload.model_dump(mode="json", exclude_none=True)
         async with httpx.AsyncClient(timeout=10.0) as client:
             try:
