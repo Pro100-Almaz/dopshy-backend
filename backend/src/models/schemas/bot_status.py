@@ -10,3 +10,11 @@ class BotStatusBatchIn(pydantic.BaseModel):
 class BotStatusToggleOut(pydantic.BaseModel):
     phone: str
     paused: bool
+
+
+class BotEnabledStatus(pydantic.BaseModel):
+    is_enabled: bool
+
+
+class BotEnabledStatusIn(pydantic.BaseModel):
+    enabled: bool = pydantic.Field(strict=True)
