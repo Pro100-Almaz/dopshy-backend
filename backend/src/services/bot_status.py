@@ -6,7 +6,7 @@ import fastapi
 import httpx
 
 from src.config.manager import settings
-from src.models.schemas.bot_status import BotStatusBatchIn
+from src.models.schemas.bot_status import BotEnabledStatus, BotStatusBatchIn
 
 
 class BotStatusService:
@@ -33,7 +33,7 @@ class BotStatusService:
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "X-API-KEY": os.getenv("MANAGER_API_KEY") or "",
+            "X-API-KEY": os.getenv("MANAGER_API_KEY") or settings.MANAGER_API_KEY or "",
         }
         async with httpx.AsyncClient(timeout=10.0) as client:
             try:
@@ -45,14 +45,24 @@ class BotStatusService:
                 ) from exc
 
         if response.status_code >= 400:
-            detail = "Bot service authentication failed (check MANAGER_API_KEY)." \
-                if response.status_code == 401 \
-                else f"Bot service returned {response.status_code}: {response.text[:200]}"
             raise fastapi.HTTPException(
                 status_code=fastapi.status.HTTP_502_BAD_GATEWAY,
-                detail=detail,
+                detail=self._error_detail(response),
             )
         return response
+
+    def _error_detail(self, response: httpx.Response) -> str:
+        if response.status_code == 401:
+            return "Bot service authentication failed (check MANAGER_API_KEY)."
+        # The switch routes answer 5xx with a Flask HTML error page rather than the
+        # usual JSON envelope (it means the bot's schema is not migrated). Report it
+        # as an upstream infrastructure fault instead of echoing markup downstream.
+        if "application/json" not in response.headers.get("content-type", ""):
+            return (
+                f"Bot service returned {response.status_code} with a non-JSON body — "
+                "likely a bot-side infrastructure error."
+            )
+        return f"Bot service returned {response.status_code}: {response.text[:200]}"
 
     def _json(self, response: httpx.Response) -> typing.Any:
         try:
@@ -88,3 +98,15 @@ class BotStatusService:
         with live pause status. Returned as-is from the bot service."""
         response = await self._request("GET", "/api/manager/contacts")
         return self._json(response)
+
+    async def get_bot_enabled_status(self) -> BotEnabledStatus:
+        response = await self._request("GET", "/api/manager/is_messaging_enabled")
+        return BotEnabledStatus.model_validate(self._json(response))
+
+    async def set_bot_enabled_status(self, enabled: bool) -> BotEnabledStatus:
+        response = await self._request(
+            "POST",
+            "/api/manager/change_messaging_enabled",
+            json={"enabled": enabled},
+        )
+        return BotEnabledStatus.model_validate(self._json(response))
