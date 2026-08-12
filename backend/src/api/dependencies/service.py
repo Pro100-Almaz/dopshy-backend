@@ -4,11 +4,13 @@ from src.api.dependencies.repository import get_repository
 from src.repository.crud.account import AccountCRUDRepository
 from src.repository.crud.booking import BookingCRUDRepository
 from src.repository.crud.field import FieldCRUDRepository
+from src.repository.crud.payment import PaymentCRUDRepository
 from src.services.account import AccountService
 from src.services.booking import BookingService
 from src.services.bot_status import BotStatusService
 from src.services.field import FieldService
 from src.services.history import HistoryService
+from src.services.payment import PaymentService
 
 
 def get_account_service(
@@ -28,6 +30,12 @@ def get_booking_service(
     field_repo: FieldCRUDRepository = fastapi.Depends(get_repository(repo_type=FieldCRUDRepository)),
 ) -> BookingService:
     return BookingService(booking_repo=booking_repo, field_repo=field_repo)
+
+
+def get_payment_service(
+    payment_repo: PaymentCRUDRepository = fastapi.Depends(get_repository(repo_type=PaymentCRUDRepository)),
+) -> PaymentService:
+    return PaymentService(payment_repo=payment_repo)
 
 
 def get_bot_status_service() -> BotStatusService:
