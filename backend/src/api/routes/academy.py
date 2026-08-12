@@ -18,6 +18,15 @@ class SubscriptionUpdate(pydantic.BaseModel):
     subscribed: bool = pydantic.Field(default=True, strict=True)
 
 
+class AcademyGroupUpdate(pydantic.BaseModel):
+    group_name: str | None = None
+    max_cap: int | None = None
+    start_time: str | None = None
+    end_time: str | None = None
+
+    model_config = pydantic.ConfigDict(extra="forbid")
+
+
 @router.get(
     path="/academy_groups",
     name="manager-academy:list-groups",
@@ -43,6 +52,28 @@ async def get_academy_group_trials(
 ) -> fastapi.responses.JSONResponse:
     status_code, payload = await academy_service.get_group_trials(group_id=group_id)
     return fastapi.responses.JSONResponse(status_code=status_code, content=payload)
+
+
+@router.patch(
+    path="/academy_groups/{group_id}",
+    name="manager-academy:update-group",
+    status_code=fastapi.status.HTTP_200_OK,
+)
+async def update_academy_group(
+    group_id: int,
+    payload: AcademyGroupUpdate,
+    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN, Role.MANAGER)),
+    academy_service: AcademyService = fastapi.Depends(get_academy_service),
+) -> fastapi.responses.JSONResponse:
+    update_payload = payload.model_dump(exclude_unset=True)
+    if not update_payload:
+        raise fastapi.HTTPException(
+            status_code=fastapi.status.HTTP_400_BAD_REQUEST,
+            detail="At least one of group_name, max_cap, start_time, or end_time must be provided.",
+        )
+
+    status_code, response_payload = await academy_service.update_group(group_id=group_id, payload=update_payload)
+    return fastapi.responses.JSONResponse(status_code=status_code, content=response_payload)
 
 
 @router.patch(

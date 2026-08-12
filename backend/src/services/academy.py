@@ -61,6 +61,13 @@ class AcademyService:
     async def get_group_trials(self, group_id: int) -> tuple[int, typing.Any]:
         return await self._request("GET", f"/api/manager/academy_groups/{group_id}/trials")
 
+    async def update_group(self, group_id: int, payload: dict[str, typing.Any]) -> tuple[int, typing.Any]:
+        return await self._request(
+            "PATCH",
+            f"/api/manager/academy_groups/{group_id}",
+            json=payload,
+        )
+
     async def set_trial_attended(self, trial_id: int, attended: bool) -> tuple[int, typing.Any]:
         return await self._request(
             "PATCH",
