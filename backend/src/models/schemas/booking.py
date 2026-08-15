@@ -142,7 +142,7 @@ class BotBookingRaw(pydantic.BaseModel):
     notes: str | None = None
     date: datetime.date | None = None
     reserved_until: str | None = None
-    paid_bot: decimal.Decimal | None = None
+    paid_api: decimal.Decimal | None = None
     paid_kaspi_qr: decimal.Decimal | None = None
     paid_cash: decimal.Decimal | None = None
     paid_avans: decimal.Decimal | None = None
@@ -154,7 +154,7 @@ class BotBookingRaw(pydantic.BaseModel):
     @pydantic.field_validator(
         "field",
         "price_total",
-        "paid_bot",
+        "paid_api",
         "paid_kaspi_qr",
         "paid_cash",
         "paid_avans",

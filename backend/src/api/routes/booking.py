@@ -79,6 +79,7 @@ async def create_bookings_batch(
     booking_service: BookingService = fastapi.Depends(get_booking_service),
     current_user: Account = fastapi.Depends(get_current_user),
 ) -> fastapi.Response:
+    print("PAYLOAD:", payload)
     status_code, data = await booking_service.create_bookings_batch(payload=payload, current_user=current_user)
     return fastapi.responses.JSONResponse(status_code=status_code, content=data)
 

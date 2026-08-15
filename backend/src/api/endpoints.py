@@ -8,7 +8,6 @@ from src.api.routes.booking import router as booking_router
 from src.api.routes.bot_status import router as bot_status_router
 from src.api.routes.field import router as field_router
 from src.api.routes.history import router as history_router
-from src.api.routes.payment import router as payment_router
 
 router = fastapi.APIRouter()
 
@@ -20,4 +19,3 @@ router.include_router(router=bot_status_router)
 router.include_router(router=academy_router)
 router.include_router(router=boxing_router)
 router.include_router(router=history_router)
-router.include_router(router=payment_router)

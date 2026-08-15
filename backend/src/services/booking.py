@@ -256,7 +256,7 @@ class BookingService:
 
         The bot's ``GET /api/manager/bookings/{id}`` returns the full booking row
         (schedule, customer, state, manual payment buckets) plus aggregated
-        bot-payment info (``paid_bot``, ``last_receipt_date``). The response is
+        bot-payment info (``paid_api``, ``last_receipt_date``). The response is
         passed through as-is so no enriched field is silently dropped. Raises 404
         when the bot reports the booking does not exist.
         """

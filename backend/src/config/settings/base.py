@@ -54,16 +54,10 @@ class BackendBaseSettings(BaseSettings):
     # Shared service token presented to the bot as the `X-API-Key` header.
     # Must match the bot's `X_SERVICE_TOKEN`.
     MANAGER_API_KEY: str = decouple.config("MANAGER_API_KEY", cast=str, default="")  # type: ignore
-    # ApiPay.kz — programmatic access to the owner's Kaspi Pay account
-    # (invoicing + payment webhooks). See https://apipay.kz/for-ai.
-    # Both secrets are issued once in the ApiPay dashboard (Настройки → «Подключение»)
-    # and must never reach the frontend.
-    APIPAY_BASE_URL: str = decouple.config(  # type: ignore
-        "APIPAY_BASE_URL", cast=str, default="https://api.apipay.kz/api/v1"
-    )
-    APIPAY_API_KEY: str = decouple.config("APIPAY_API_KEY", cast=str, default="")  # type: ignore
-    APIPAY_WEBHOOK_SECRET: str = decouple.config("APIPAY_WEBHOOK_SECRET", cast=str, default="")  # type: ignore
-    APIPAY_TIMEOUT: float = decouple.config("APIPAY_TIMEOUT", cast=float, default=15.0)  # type: ignore
+    # ApiPay.kz (Kaspi Pay) needs no credentials here: this backend only relays the
+    # payment webhook to the bot at `/webhooks/apipay`. APIPAY_API_KEY and
+    # APIPAY_WEBHOOK_SECRET belong to the bot service, which creates the invoices
+    # and verifies the webhook signature itself. See https://apipay.kz/for-ai.
 
     IS_ALLOWED_CREDENTIALS: bool = decouple.config("IS_ALLOWED_CREDENTIALS", cast=bool)  # type: ignore
     ALLOWED_ORIGINS: list[str] = [
