@@ -23,7 +23,6 @@ async def apipay_webhook(request: fastapi.Request) -> dict[str, bool]:
     (11 attempts over ~2 hours) instead of the payment silently going missing.
     """
     raw_body = await request.body()
-    print("RAW BODY", raw_body)
 
     if not settings.BOT_URL:
         loguru.logger.error("ApiPay webhook received but BOT_URL is not configured — nothing to forward to")
