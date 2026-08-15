@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from src.api.endpoints import router as api_endpoint_router
+from src.api.routes.webhooks import router as webhooks_router
 from src.config.events import execute_backend_server_event_handler, terminate_backend_server_event_handler
 from src.config.manager import settings
 
@@ -31,6 +32,9 @@ def initialize_backend_application() -> fastapi.FastAPI:
     )
 
     app.include_router(router=api_endpoint_router, prefix=settings.API_PREFIX)
+    # Mounted at the root, not under /api: the URL registered in the ApiPay dashboard
+    # is https://api.dopsy.kz/webhooks/apipay, matching the path on the bot side.
+    app.include_router(router=webhooks_router)
 
     media_directory = pathlib.Path(__file__).resolve().parent.parent / "media"
     media_directory.mkdir(exist_ok=True)
