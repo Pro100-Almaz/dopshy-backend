@@ -2,9 +2,12 @@ import enum
 
 
 class BookingStatus(str, enum.Enum):
+    DRAFT = "draft"
+    AWAITING_PAYMENT = "awaiting_payment"
     PENDING = "pending"
     CONFIRMED = "confirmed"
-    DECLINED = "declined"
+    UNPAID = "unpaid"
+    REJECTED = "rejected"
     CANCELLED = "cancelled"
     COMPLETED = "completed"
 
@@ -14,3 +17,10 @@ class BookingSource(str, enum.Enum):
     ACCOUNT = "account"
     MANAGER = "manager"
     CHATBOT = "chatbot"
+
+
+class RepeatMode(str, enum.Enum):
+    NONE = "none"
+    DAILY = "daily"
+    WEEKLY = "weekly"
+    MONTHLY = "monthly"

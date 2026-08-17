@@ -11,7 +11,7 @@ from src.models.schemas.booking import (
     BookingInCreateAuthenticated,
     BookingInCreateByManager,
     BookingOut,
-    BookingStatusUpdate, BotBookingRaw,
+    BookingStatusUpdate, BotBookingRaw, BookingInUpdate,
 )
 from src.services.booking import BookingService
 from src.utilities.exceptions.database import EntityDoesNotExist
@@ -77,8 +77,9 @@ async def create_manager_booking(
 async def create_bookings_batch(
     payload: BookingBatchInCreate,
     booking_service: BookingService = fastapi.Depends(get_booking_service),
+    current_user: Account = fastapi.Depends(get_current_user),
 ) -> fastapi.Response:
-    status_code, data = await booking_service.create_bookings_batch(payload=payload)
+    status_code, data = await booking_service.create_bookings_batch(payload=payload, current_user=current_user)
     return fastapi.responses.JSONResponse(status_code=status_code, content=data)
 
 
@@ -91,12 +92,14 @@ async def create_bookings_batch(
 async def list_all_bookings(
     _: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.MANAGER)),
     booking_service: BookingService = fastapi.Depends(get_booking_service),
+    page: int | None = fastapi.Query(default=None, ge=1),
+    search: str | None = fastapi.Query(default=None),
 ) -> list[BotBookingRaw] | None:
-    return await booking_service.get_all_bookings()
+    return await booking_service.get_all_bookings(page=page, search=search)
 
 
 @router.get(
-    path="/range/{start_date}/{end_date}/{field}",
+    path="/range/{start_date}/{end_date}",
     name="bookings:list-range",
     response_model=list[BotBookingRaw | None],
     status_code=fastapi.status.HTTP_200_OK,
@@ -104,11 +107,13 @@ async def list_all_bookings(
 async def list_bookings_in_range(
         start_date: str,
         end_date: str,
-        field: int,
         booking_service: BookingService = fastapi.Depends(get_booking_service),
+        field: int | None = fastapi.Query(default=None, ge=1, le=3),
+        page: int | None = fastapi.Query(default=None, ge=1),
+        search: str | None = fastapi.Query(default=None),
 ) -> list[BotBookingRaw] | None:
     return await booking_service.get_bookings_in_range(
-        start_date=start_date, end_date=end_date, field=field
+        start_date=start_date, end_date=end_date, field=field, page=page, search=search
     )
 
 
@@ -128,18 +133,37 @@ async def list_my_bookings(
 @router.get(
     path="/{id}",
     name="bookings:get-detail",
-    response_model=BookingDetailOut,
     status_code=fastapi.status.HTTP_200_OK,
 )
 async def get_booking_detail(
     id: int,
-    current_user: Account = fastapi.Depends(get_current_user),
+    _: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.MANAGER)),
     booking_service: BookingService = fastapi.Depends(get_booking_service),
-) -> BookingDetailOut:
+) -> dict:
     try:
-        return await booking_service.get_booking_detail(booking_id=id, current_account=current_user)
+        return await booking_service.get_booking_detail(booking_id=id)
     except EntityDoesNotExist:
         raise await http_404_exc_booking_not_found_request(id=id)
+
+
+@router.patch(
+    path="/{id}",
+    name="bookings:update-detail",
+    status_code=fastapi.status.HTTP_200_OK,
+)
+async def update_booking_detail(
+        id: int,
+        payload: BookingInUpdate,
+        current_user: Account = fastapi.Depends(get_current_user),
+        booking_service: BookingService = fastapi.Depends(get_booking_service),
+) -> dict:
+    try:
+        return await booking_service.update_booking(
+            booking_id=id, payload=payload, current_user=current_user
+        )
+    except EntityDoesNotExist:
+        raise await http_404_exc_booking_not_found_request(id=id)
+
 
 
 @router.patch(
@@ -160,3 +184,4 @@ async def update_booking_status(
         )
     except EntityDoesNotExist:
         raise await http_404_exc_booking_not_found_request(id=id)
+
