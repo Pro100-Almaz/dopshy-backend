@@ -1,6 +1,6 @@
 import fastapi
 
-from src.api.dependencies.auth import get_current_user, require_roles
+from src.api.dependencies.auth import get_current_user, require_roles, get_current_user_optional
 from src.api.dependencies.service import get_booking_service
 from src.models.db.account import Account
 from src.models.enums.role import Role
@@ -77,7 +77,7 @@ async def create_manager_booking(
 async def create_bookings_batch(
     payload: BookingBatchInCreate,
     booking_service: BookingService = fastapi.Depends(get_booking_service),
-    current_user: Account = fastapi.Depends(get_current_user),
+    current_user: Account | None = fastapi.Depends(get_current_user_optional),
 ) -> fastapi.Response:
     status_code, data = await booking_service.create_bookings_batch(payload=payload, current_user=current_user)
     return fastapi.responses.JSONResponse(status_code=status_code, content=data)

@@ -202,7 +202,7 @@ class BookingService:
         booking_data = [BotBookingRaw.model_validate(b) for b in bookings]
         return booking_data
 
-    async def create_bookings_batch(self, payload: BookingBatchInCreate, current_user: Account) -> tuple[int, typing.Any]:
+    async def create_bookings_batch(self, payload: BookingBatchInCreate, current_user: Account | None) -> tuple[int, typing.Any]:
         base_url = settings.BOT_URL
         if not base_url:
             raise fastapi.HTTPException(
