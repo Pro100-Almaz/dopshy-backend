@@ -15,23 +15,44 @@ from src.config.manager import settings
 bearer_scheme = HTTPBearer()
 optional_bearer_scheme = HTTPBearer(auto_error=False)
 
+class CurrentUser:
+    async def get_current_user(
+            self,
+            credentials: HTTPAuthorizationCredentials = fastapi.Depends(bearer_scheme),
+            account_repo: AccountCRUDRepository = fastapi.Depends(get_repository(repo_type=AccountCRUDRepository)),
+    ) -> Account:
+        return await self._get_user(credentials, account_repo)
 
-async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = fastapi.Depends(bearer_scheme),
-    account_repo: AccountCRUDRepository = fastapi.Depends(get_repository(repo_type=AccountCRUDRepository)),
-) -> Account:
-    token = credentials.credentials
-    try:
-        details = jwt_generator.retrieve_details_from_token(token=token, secret_key=settings.JWT_SECRET_KEY)
-        email = details[1]
-    except ValueError:
-        raise fastapi.HTTPException(status_code=fastapi.status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
+    async def get_current_user_optional(
+            self,
+            credentials: HTTPAuthorizationCredentials | None = fastapi.Depends(optional_bearer_scheme),
+            account_repo: AccountCRUDRepository = fastapi.Depends(get_repository(repo_type=AccountCRUDRepository)),
+    ) -> Account | None:
+        if credentials is None:
+            return None
 
-    account = await account_repo.read_account_by_email(email=email)
-    if not account:
-        raise fastapi.HTTPException(status_code=fastapi.status.HTTP_404_NOT_FOUND, detail="Account not found")
+        return await self._get_user(credentials, account_repo)
 
-    return account  # type: ignore
+    @staticmethod
+    async def _get_user(credentials, account_repo) -> Account:
+        token = credentials.credentials
+        try:
+            details = jwt_generator.retrieve_details_from_token(token=token, secret_key=settings.JWT_SECRET_KEY)
+            email = details[1]
+        except ValueError:
+            raise fastapi.HTTPException(status_code=fastapi.status.HTTP_401_UNAUTHORIZED,
+                                        detail="Invalid or expired token")
+
+        account = await account_repo.read_account_by_email(email=email)
+        if not account:
+            raise fastapi.HTTPException(status_code=fastapi.status.HTTP_404_NOT_FOUND, detail="Account not found")
+
+        return account  # type: ignore
+
+
+current_user_dependency = CurrentUser()
+get_current_user = current_user_dependency.get_current_user
+get_current_user_optional = current_user_dependency.get_current_user_optional
 
 
 def require_roles(*roles: Role) -> typing.Callable[..., typing.Awaitable[Account]]:
