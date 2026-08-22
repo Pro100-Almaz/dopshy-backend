@@ -105,13 +105,17 @@ class AcademyService:
                 rows.extend(row for row in group_rows if isinstance(row, dict))
         return rows
 
-    def normalize_group(self, row: dict[str, typing.Any]) -> dict[str, typing.Any]:
+    def normalize_group(
+        self,
+        row: dict[str, typing.Any],
+        group_type: str = "boxing",
+    ) -> dict[str, typing.Any]:
         group_id = row.get("group_id") or row.get("id")
         training_day = row.get("training_day_label") or row.get("training_day")
         return {
             "id": str(group_id) if group_id is not None else "",
             "group_id": group_id,
-            "group_type": row.get("group_type") or "boxing",
+            "group_type": row.get("group_type") or group_type,
             "group_name": row.get("group_name") or "",
             "max_cap": row.get("max_cap"),
             "curr_cap": row.get("curr_cap"),

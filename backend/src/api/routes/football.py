@@ -10,7 +10,7 @@ from src.models.db.account import Account
 from src.models.enums.role import Role
 from src.services.academy import AcademyService
 
-router = fastapi.APIRouter(prefix="/boxing", tags=["boxing"])
+router = fastapi.APIRouter(prefix="/football", tags=["football"])
 
 
 class AttendanceUpdate(pydantic.BaseModel):
@@ -23,45 +23,45 @@ class SubscriptionUpdate(pydantic.BaseModel):
 
 @router.get(
     path="/groups",
-    name="boxing:groups",
+    name="football:groups",
     status_code=fastapi.status.HTTP_200_OK,
 )
-async def list_boxing_groups(
+async def list_football_groups(
     _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN, Role.MANAGER)),
     academy_service: AcademyService = fastapi.Depends(get_academy_service),
 ) -> dict[str, typing.Any]:
-    return await list_groups_by_type("boxing", academy_service)
+    return await list_groups_by_type("football", academy_service)
 
 
 @router.get(
     path="/trials",
-    name="boxing:trials",
+    name="football:trials",
     status_code=fastapi.status.HTTP_200_OK,
 )
-async def list_boxing_trials(
+async def list_football_trials(
     subscribed: bool | None = fastapi.Query(default=None),
     _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN, Role.MANAGER)),
     academy_service: AcademyService = fastapi.Depends(get_academy_service),
 ) -> dict[str, typing.Any]:
-    return await list_trials_by_type("boxing", subscribed, academy_service)
+    return await list_trials_by_type("football", subscribed, academy_service)
 
 
 @router.get(
     path="/students",
-    name="boxing:students",
+    name="football:students",
     status_code=fastapi.status.HTTP_200_OK,
 )
-async def list_boxing_students(
+async def list_football_students(
     subscribed: bool | None = fastapi.Query(default=None),
     _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN, Role.MANAGER)),
     academy_service: AcademyService = fastapi.Depends(get_academy_service),
 ) -> dict[str, typing.Any]:
-    return await list_students_by_type("boxing", subscribed, academy_service)
+    return await list_students_by_type("football", subscribed, academy_service)
 
 
 @router.patch(
     path="/trials/{trial_id}/attended",
-    name="boxing:trial-attended",
+    name="football:trial-attended",
     status_code=fastapi.status.HTTP_200_OK,
 )
 async def set_trial_attended(
@@ -79,7 +79,7 @@ async def set_trial_attended(
 
 @router.patch(
     path="/trials/{trial_id}/subscribed",
-    name="boxing:trial-subscribed",
+    name="football:trial-subscribed",
     status_code=fastapi.status.HTTP_200_OK,
 )
 async def set_trial_subscribed(
@@ -97,7 +97,7 @@ async def set_trial_subscribed(
 
 @router.patch(
     path="/students/{student_id}/subscribed",
-    name="boxing:student-subscribed",
+    name="football:student-subscribed",
     status_code=fastapi.status.HTTP_200_OK,
 )
 async def set_student_subscribed(
