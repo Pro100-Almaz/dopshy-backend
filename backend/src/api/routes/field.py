@@ -21,7 +21,7 @@ router = fastapi.APIRouter(prefix="/fields", tags=["fields"])
 )
 async def create_field(
     field_in: FieldInCreate,
-    _: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.MANAGER)),
+    _: Account = fastapi.Depends(require_roles(Role.SUPER_ADMIN)),
     field_service: FieldService = fastapi.Depends(get_field_service),
 ) -> FieldOut:
     return await field_service.create_field(field_create=field_in)
@@ -64,7 +64,7 @@ async def get_field(
 async def update_field(
     id: int,
     field_in: FieldInUpdate,
-    _: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.MANAGER)),
+    _: Account = fastapi.Depends(require_roles(Role.SUPER_ADMIN)),
     field_service: FieldService = fastapi.Depends(get_field_service),
 ) -> FieldOut:
     try:
@@ -80,7 +80,7 @@ async def update_field(
 )
 async def delete_field(
     id: int,
-    _: Account = fastapi.Depends(require_roles(Role.ADMIN)),
+    _: Account = fastapi.Depends(require_roles(Role.SUPER_ADMIN)),
     field_service: FieldService = fastapi.Depends(get_field_service),
 ) -> dict[str, str]:
     try:
@@ -98,7 +98,7 @@ async def delete_field(
 async def replace_pricing_rules(
     id: int,
     rules: list[PricingRuleIn],
-    _: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.MANAGER)),
+    _: Account = fastapi.Depends(require_roles(Role.SUPER_ADMIN)),
     field_service: FieldService = fastapi.Depends(get_field_service),
 ) -> FieldOut:
     try:

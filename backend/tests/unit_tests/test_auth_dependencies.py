@@ -103,6 +103,34 @@ async def test_require_roles_or_manager_api_key_returns_authorized_user(monkeypa
 
 
 @pytest.mark.asyncio
+async def test_super_admin_is_allowed_for_any_role_dependency(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("MANAGER_API_KEY", raising=False)
+    monkeypatch.setattr(jwt_generator, "retrieve_details_from_token", lambda token, secret_key: (1, "admin@example.com"))
+    account = FakeAccount(Role.SUPER_ADMIN.value)
+    dependency = require_roles_or_manager_api_key(Role.ADMIN)
+
+    result = await dependency(x_api_key=None, credentials=credentials(), account_repo=FakeAccountRepo(account))
+
+    assert result is account
+
+
+@pytest.mark.asyncio
+async def test_scoped_manager_roles_do_not_cross_authorize(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("MANAGER_API_KEY", raising=False)
+    monkeypatch.setattr(jwt_generator, "retrieve_details_from_token", lambda token, secret_key: (1, "admin@example.com"))
+    dependency = require_roles_or_manager_api_key(Role.FOOTBALL_MANAGER)
+
+    with pytest.raises(fastapi.HTTPException) as exc_info:
+        await dependency(
+            x_api_key=None,
+            credentials=credentials(),
+            account_repo=FakeAccountRepo(FakeAccount(Role.BOXING_MANAGER.value)),
+        )
+
+    assert exc_info.value.status_code == fastapi.status.HTTP_403_FORBIDDEN
+
+
+@pytest.mark.asyncio
 async def test_require_roles_checks_current_user_role() -> None:
     dependency = require_roles(Role.ADMIN)
 

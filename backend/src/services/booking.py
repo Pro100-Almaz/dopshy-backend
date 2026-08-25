@@ -213,7 +213,7 @@ class BookingService:
 
         if current_user is None:
             payload.source = f"{BookingSource.LANDING.value}:{payload.phone}"
-        elif current_user.role in (Role.ADMIN.value, Role.MANAGER.value):
+        elif current_user.role in _BOOKING_STAFF_ROLE_VALUES:
             payload.source = f"{BookingSource.MANAGER.value}:{current_user.username}"
         else:
             payload.source = f"{BookingSource.ACCOUNT.value}:{current_user.email}"
@@ -308,7 +308,7 @@ class BookingService:
 
 
     async def update_booking(self, booking_id: int, payload: BookingInUpdate, current_user: Account) -> dict[str, str]:
-        if current_user is None or current_user.role not in (Role.ADMIN.value, Role.MANAGER.value):
+        if current_user is None or current_user.role not in _BOOKING_STAFF_ROLE_VALUES:
             raise fastapi.HTTPException(status_code=fastapi.status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
         base_url = settings.BOT_URL
@@ -359,7 +359,7 @@ class BookingService:
         self, booking_id: int, payload: BookingStatusUpdate, current_account: Account
     ) -> BookingDetailOut:
         booking = await self.booking_repo.read_booking_by_id(id=booking_id)
-        is_staff = current_account.role in (Role.ADMIN.value, Role.MANAGER.value)
+        is_staff = current_account.role in _BOOKING_STAFF_ROLE_VALUES
         new_status = payload.status
 
         if new_status in (BookingStatus.CONFIRMED, BookingStatus.REJECTED):
@@ -392,3 +392,10 @@ class BookingService:
             comment=payload.comment,
         )
         return BookingDetailOut.model_validate(updated)
+
+
+_BOOKING_STAFF_ROLE_VALUES = {
+    Role.SUPER_ADMIN.value,
+    Role.ADMIN.value,
+    Role.ARENA_MANAGER.value,
+}

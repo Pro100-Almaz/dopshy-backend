@@ -96,7 +96,7 @@ async def resend_verification(
 )
 async def assign_role(
     body: AccountRoleUpdate,
-    _: Account = fastapi.Depends(require_roles(Role.ADMIN)),
+    _: Account = fastapi.Depends(require_roles(Role.SUPER_ADMIN)),
     account_service: AccountService = fastapi.Depends(get_account_service),
 ) -> AccountInResponse:
     try:

@@ -25,7 +25,7 @@ router = fastapi.APIRouter(prefix="/bot-status", tags=["bot-status"])
     status_code=fastapi.status.HTTP_200_OK,
 )
 async def get_bot_enabled_status(
-    _: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.MANAGER)),
+    _: Account = fastapi.Depends(require_roles(Role.SUPER_ADMIN)),
     bot_status_service: BotStatusService = fastapi.Depends(get_bot_status_service),
 ) -> BotEnabledStatus:
     return await bot_status_service.get_bot_enabled_status()
@@ -39,7 +39,7 @@ async def get_bot_enabled_status(
 )
 async def patch_bot_enabled_status(
     payload: BotEnabledStatusIn,
-    account: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.MANAGER)),
+    account: Account = fastapi.Depends(require_roles(Role.SUPER_ADMIN)),
     bot_status_service: BotStatusService = fastapi.Depends(get_bot_status_service),
 ) -> BotEnabledStatus:
     enabled_status = await bot_status_service.set_bot_enabled_status(enabled=payload.enabled)
@@ -57,7 +57,7 @@ async def patch_bot_enabled_status(
 )
 async def batch_bot_status(
     payload: BotStatusBatchIn,
-    _: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.MANAGER)),
+    _: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.ARENA_MANAGER)),
     bot_status_service: BotStatusService = fastapi.Depends(get_bot_status_service),
 ) -> typing.Any:
     return await bot_status_service.batch_status(payload=payload)
@@ -69,7 +69,7 @@ async def batch_bot_status(
     status_code=fastapi.status.HTTP_200_OK,
 )
 async def list_bot_contacts(
-    _: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.MANAGER)),
+    _: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.ARENA_MANAGER)),
     bot_status_service: BotStatusService = fastapi.Depends(get_bot_status_service),
 ) -> typing.Any:
     return await bot_status_service.list_contacts()
@@ -82,7 +82,7 @@ async def list_bot_contacts(
 )
 async def get_bot_status(
     phone: str,
-    _: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.MANAGER)),
+    _: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.ARENA_MANAGER)),
     bot_status_service: BotStatusService = fastapi.Depends(get_bot_status_service),
 ) -> typing.Any:
     return await bot_status_service.get_status(phone=phone)
@@ -96,7 +96,7 @@ async def get_bot_status(
 )
 async def pause_bot_status(
     phone: str,
-    _: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.MANAGER)),
+    _: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.ARENA_MANAGER)),
     bot_status_service: BotStatusService = fastapi.Depends(get_bot_status_service),
 ) -> BotStatusToggleOut:
     return await bot_status_service.pause(phone=phone)
@@ -110,7 +110,7 @@ async def pause_bot_status(
 )
 async def resume_bot_status(
     phone: str,
-    _: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.MANAGER)),
+    _: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.ARENA_MANAGER)),
     bot_status_service: BotStatusService = fastapi.Depends(get_bot_status_service),
 ) -> BotStatusToggleOut:
     return await bot_status_service.resume(phone=phone)

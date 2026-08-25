@@ -67,7 +67,7 @@ class PaymentUpdate(pydantic.BaseModel):
     status_code=fastapi.status.HTTP_200_OK,
 )
 async def list_football_groups(
-    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN, Role.MANAGER)),
+    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN, Role.FOOTBALL_MANAGER)),
     academy_service: AcademyService = fastapi.Depends(get_academy_service),
 ) -> dict[str, typing.Any]:
     return await list_groups_by_type("football", academy_service)
@@ -80,7 +80,7 @@ async def list_football_groups(
 )
 async def list_football_trials(
     subscribed: bool | None = fastapi.Query(default=None),
-    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN, Role.MANAGER)),
+    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN, Role.FOOTBALL_MANAGER)),
     academy_service: AcademyService = fastapi.Depends(get_academy_service),
 ) -> dict[str, typing.Any]:
     return await list_trials_by_type("football", subscribed, academy_service)
@@ -93,7 +93,7 @@ async def list_football_trials(
 )
 async def list_football_students(
     subscribed: bool | None = fastapi.Query(default=None),
-    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN, Role.MANAGER)),
+    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN, Role.FOOTBALL_MANAGER)),
     academy_service: AcademyService = fastapi.Depends(get_academy_service),
 ) -> dict[str, typing.Any]:
     return await list_students_by_type("football", subscribed, academy_service)
@@ -107,7 +107,7 @@ async def list_football_students(
 async def set_trial_attended(
     trial_id: int,
     payload: AttendanceUpdate,
-    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN, Role.MANAGER)),
+    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN, Role.FOOTBALL_MANAGER)),
     academy_service: AcademyService = fastapi.Depends(get_academy_service),
 ) -> fastapi.responses.JSONResponse:
     status_code, response_payload = await academy_service.set_sport_trial_attended(
@@ -126,7 +126,7 @@ async def set_trial_attended(
 async def set_trial_subscribed(
     trial_id: int,
     payload: SubscriptionUpdate,
-    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN, Role.MANAGER)),
+    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN, Role.FOOTBALL_MANAGER)),
     academy_service: AcademyService = fastapi.Depends(get_academy_service),
 ) -> fastapi.responses.JSONResponse:
     status_code, response_payload = await academy_service.set_sport_trial_subscribed(
@@ -145,7 +145,7 @@ async def set_trial_subscribed(
 async def set_student_subscribed(
     student_id: int,
     payload: SubscriptionUpdate,
-    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN, Role.MANAGER)),
+    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN, Role.FOOTBALL_MANAGER)),
     academy_service: AcademyService = fastapi.Depends(get_academy_service),
 ) -> fastapi.responses.JSONResponse:
     status_code, response_payload = await academy_service.set_sport_student_subscribed(
@@ -162,7 +162,7 @@ async def set_student_subscribed(
     status_code=fastapi.status.HTTP_200_OK,
 )
 async def list_football_payments(
-    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN, Role.MANAGER)),
+    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN)),
     academy_service: AcademyService = fastapi.Depends(get_academy_service),
 ) -> fastapi.responses.JSONResponse:
     return await list_payments_by_type("football", academy_service)
@@ -176,7 +176,7 @@ async def list_football_payments(
 async def set_football_payment_confirmed(
     payment_id: int,
     payload: PaymentConfirmedUpdate,
-    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN, Role.MANAGER)),
+    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN)),
     academy_service: AcademyService = fastapi.Depends(get_academy_service),
 ) -> fastapi.responses.JSONResponse:
     status_code, response_payload = await academy_service.set_sport_payment_confirmed(
@@ -195,7 +195,7 @@ async def set_football_payment_confirmed(
 async def update_football_payment(
     payment_id: int,
     payload: PaymentUpdate,
-    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN, Role.MANAGER)),
+    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN)),
     academy_service: AcademyService = fastapi.Depends(get_academy_service),
 ) -> fastapi.responses.JSONResponse:
     update_payload = payload.model_dump(exclude_unset=True)
@@ -218,7 +218,7 @@ async def update_football_payment(
     status_code=fastapi.status.HTTP_200_OK,
 )
 async def get_football_bot_content(
-    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN, Role.MANAGER)),
+    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.SUPER_ADMIN)),
     academy_service: AcademyService = fastapi.Depends(get_academy_service),
 ) -> fastapi.responses.JSONResponse:
     return await get_bot_content_by_type("football", academy_service)
@@ -231,7 +231,7 @@ async def get_football_bot_content(
 )
 async def save_football_bot_content(
     payload: dict[str, typing.Any] = fastapi.Body(default_factory=dict),
-    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN, Role.MANAGER)),
+    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.SUPER_ADMIN)),
     academy_service: AcademyService = fastapi.Depends(get_academy_service),
 ) -> fastapi.responses.JSONResponse:
     status_code, response_payload = await academy_service.save_sport_bot_content(
