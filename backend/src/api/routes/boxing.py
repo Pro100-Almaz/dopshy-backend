@@ -3,7 +3,13 @@ import typing
 import fastapi
 import pydantic
 
-from src.api.routes.academy_type import list_groups_by_type, list_students_by_type, list_trials_by_type
+from src.api.routes.academy_type import (
+    get_bot_content_by_type,
+    list_groups_by_type,
+    list_payments_by_type,
+    list_students_by_type,
+    list_trials_by_type,
+)
 from src.api.dependencies.auth import require_roles_or_manager_api_key
 from src.api.dependencies.service import get_academy_service
 from src.models.db.account import Account
@@ -14,11 +20,45 @@ router = fastapi.APIRouter(prefix="/boxing", tags=["boxing"])
 
 
 class AttendanceUpdate(pydantic.BaseModel):
-    attended: bool = pydantic.Field(strict=True)
+    attended: bool | None = pydantic.Field(default=None, strict=True)
+    attendance_state: typing.Literal["pending", "attended", "missed"] | None = None
+
+    model_config = pydantic.ConfigDict(extra="forbid")
+
+    @pydantic.model_validator(mode="after")
+    def require_attendance_value(self) -> typing.Self:
+        if self.attended is None and self.attendance_state is None:
+            raise ValueError("Either attended or attendance_state must be provided.")
+        return self
 
 
 class SubscriptionUpdate(pydantic.BaseModel):
     subscribed: bool = pydantic.Field(default=True, strict=True)
+
+
+class PaymentConfirmedUpdate(pydantic.BaseModel):
+    confirmed: bool = pydantic.Field(strict=True)
+
+
+class PaymentUpdate(pydantic.BaseModel):
+    due_date: str | None = None
+    is_active: bool | None = pydantic.Field(default=None, strict=True)
+    notes: str | None = None
+    check_status: (
+        typing.Literal[
+            "read",
+            "blurry",
+            "amount_mismatch",
+            "manual",
+            "Оқылды",
+            "Бұлдыр",
+            "Тексеру керек",
+            "Қолмен тексеру",
+        ]
+        | None
+    ) = None
+
+    model_config = pydantic.ConfigDict(extra="forbid")
 
 
 @router.get(
@@ -70,9 +110,10 @@ async def set_trial_attended(
     _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN, Role.MANAGER)),
     academy_service: AcademyService = fastapi.Depends(get_academy_service),
 ) -> fastapi.responses.JSONResponse:
-    status_code, response_payload = await academy_service.set_trial_attended(
+    status_code, response_payload = await academy_service.set_sport_trial_attended(
+        sport="boxing",
         trial_id=trial_id,
-        attended=payload.attended,
+        payload=payload.model_dump(exclude_none=True),
     )
     return fastapi.responses.JSONResponse(status_code=status_code, content=response_payload)
 
@@ -88,7 +129,8 @@ async def set_trial_subscribed(
     _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN, Role.MANAGER)),
     academy_service: AcademyService = fastapi.Depends(get_academy_service),
 ) -> fastapi.responses.JSONResponse:
-    status_code, response_payload = await academy_service.set_trial_subscribed(
+    status_code, response_payload = await academy_service.set_sport_trial_subscribed(
+        sport="boxing",
         trial_id=trial_id,
         subscribed=payload.subscribed,
     )
@@ -106,8 +148,94 @@ async def set_student_subscribed(
     _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN, Role.MANAGER)),
     academy_service: AcademyService = fastapi.Depends(get_academy_service),
 ) -> fastapi.responses.JSONResponse:
-    status_code, response_payload = await academy_service.set_student_subscribed(
+    status_code, response_payload = await academy_service.set_sport_student_subscribed(
+        sport="boxing",
         student_id=student_id,
         subscribed=payload.subscribed,
+    )
+    return fastapi.responses.JSONResponse(status_code=status_code, content=response_payload)
+
+
+@router.get(
+    path="/payments",
+    name="boxing:payments",
+    status_code=fastapi.status.HTTP_200_OK,
+)
+async def list_boxing_payments(
+    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN, Role.MANAGER)),
+    academy_service: AcademyService = fastapi.Depends(get_academy_service),
+) -> fastapi.responses.JSONResponse:
+    return await list_payments_by_type("boxing", academy_service)
+
+
+@router.patch(
+    path="/payments/{payment_id}/confirmed",
+    name="boxing:payment-confirmed",
+    status_code=fastapi.status.HTTP_200_OK,
+)
+async def set_boxing_payment_confirmed(
+    payment_id: int,
+    payload: PaymentConfirmedUpdate,
+    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN, Role.MANAGER)),
+    academy_service: AcademyService = fastapi.Depends(get_academy_service),
+) -> fastapi.responses.JSONResponse:
+    status_code, response_payload = await academy_service.set_sport_payment_confirmed(
+        sport="boxing",
+        payment_id=payment_id,
+        confirmed=payload.confirmed,
+    )
+    return fastapi.responses.JSONResponse(status_code=status_code, content=response_payload)
+
+
+@router.patch(
+    path="/payments/{payment_id}",
+    name="boxing:payment-update",
+    status_code=fastapi.status.HTTP_200_OK,
+)
+async def update_boxing_payment(
+    payment_id: int,
+    payload: PaymentUpdate,
+    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN, Role.MANAGER)),
+    academy_service: AcademyService = fastapi.Depends(get_academy_service),
+) -> fastapi.responses.JSONResponse:
+    update_payload = payload.model_dump(exclude_unset=True)
+    if not update_payload:
+        raise fastapi.HTTPException(
+            status_code=fastapi.status.HTTP_400_BAD_REQUEST,
+            detail="At least one payment field must be provided.",
+        )
+    status_code, response_payload = await academy_service.update_sport_payment(
+        sport="boxing",
+        payment_id=payment_id,
+        payload=update_payload,
+    )
+    return fastapi.responses.JSONResponse(status_code=status_code, content=response_payload)
+
+
+@router.get(
+    path="/bot-content",
+    name="boxing:bot-content",
+    status_code=fastapi.status.HTTP_200_OK,
+)
+async def get_boxing_bot_content(
+    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN, Role.MANAGER)),
+    academy_service: AcademyService = fastapi.Depends(get_academy_service),
+) -> fastapi.responses.JSONResponse:
+    return await get_bot_content_by_type("boxing", academy_service)
+
+
+@router.put(
+    path="/bot-content",
+    name="boxing:bot-content-save",
+    status_code=fastapi.status.HTTP_200_OK,
+)
+async def save_boxing_bot_content(
+    payload: dict[str, typing.Any] = fastapi.Body(default_factory=dict),
+    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN, Role.MANAGER)),
+    academy_service: AcademyService = fastapi.Depends(get_academy_service),
+) -> fastapi.responses.JSONResponse:
+    status_code, response_payload = await academy_service.save_sport_bot_content(
+        sport="boxing",
+        payload=payload,
     )
     return fastapi.responses.JSONResponse(status_code=status_code, content=response_payload)

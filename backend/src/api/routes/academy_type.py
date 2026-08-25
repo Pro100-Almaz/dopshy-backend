@@ -9,9 +9,13 @@ async def list_groups_by_type(
     group_type: str,
     academy_service: AcademyService,
 ) -> dict[str, typing.Any]:
-    status_code, payload = await academy_service.list_groups()
+    status_code, payload = await academy_service.list_sport_groups(group_type)
     if status_code >= 400:
         return fastapi.responses.JSONResponse(status_code=status_code, content=payload)  # type: ignore[return-value]
+
+    raw_groups = payload.get("data", {}).get("groups") if isinstance(payload, dict) else None
+    if isinstance(raw_groups, list):
+        return payload
 
     groups = [
         academy_service.normalize_group(row, group_type=group_type)
@@ -25,11 +29,15 @@ async def list_trials_by_type(
     subscribed: bool | None,
     academy_service: AcademyService,
 ) -> dict[str, typing.Any]:
-    groups_status, groups_payload = await academy_service.list_groups()
-    if groups_status >= 400:
-        return fastapi.responses.JSONResponse(status_code=groups_status, content=groups_payload)  # type: ignore[return-value]
+    status_code, payload = await academy_service.list_sport_trials(group_type, subscribed=subscribed)
+    if status_code >= 400:
+        return fastapi.responses.JSONResponse(status_code=status_code, content=payload)  # type: ignore[return-value]
 
-    group_rows = academy_service.extract_group_rows(groups_payload, group_type=group_type)
+    raw_trials = payload.get("data", {}).get("trials") if isinstance(payload, dict) else None
+    if isinstance(raw_trials, list):
+        return payload
+
+    group_rows = academy_service.extract_group_rows(payload, group_type=group_type)
     groups_by_id = unique_groups_by_id(group_rows)
     trials: list[dict[str, typing.Any]] = []
 
@@ -40,8 +48,8 @@ async def list_trials_by_type(
         if detail_status >= 400:
             return fastapi.responses.JSONResponse(status_code=detail_status, content=detail_payload)  # type: ignore[return-value]
 
-        raw_trials = detail_payload.get("data", {}).get("trials", []) if isinstance(detail_payload, dict) else []
-        for trial in raw_trials:
+        raw_group_trials = detail_payload.get("data", {}).get("trials", []) if isinstance(detail_payload, dict) else []
+        for trial in raw_group_trials:
             if isinstance(trial, dict):
                 normalized = academy_service.normalize_trial(trial, groups_by_id=groups_by_id)
                 if subscribed is None or normalized["subscribed"] is subscribed:
@@ -55,11 +63,15 @@ async def list_students_by_type(
     subscribed: bool | None,
     academy_service: AcademyService,
 ) -> dict[str, typing.Any]:
-    groups_status, groups_payload = await academy_service.list_groups()
-    if groups_status >= 400:
-        return fastapi.responses.JSONResponse(status_code=groups_status, content=groups_payload)  # type: ignore[return-value]
+    status_code, payload = await academy_service.list_sport_students(group_type, subscribed=subscribed)
+    if status_code >= 400:
+        return fastapi.responses.JSONResponse(status_code=status_code, content=payload)  # type: ignore[return-value]
 
-    group_rows = academy_service.extract_group_rows(groups_payload, group_type=group_type)
+    raw_students = payload.get("data", {}).get("students") if isinstance(payload, dict) else None
+    if isinstance(raw_students, list):
+        return payload
+
+    group_rows = academy_service.extract_group_rows(payload, group_type=group_type)
     groups_by_id = unique_groups_by_id(group_rows)
     students_by_id: dict[str, dict[str, typing.Any]] = {}
     subscribed_by_user_id: dict[str, bool] = {}
@@ -99,6 +111,22 @@ async def list_students_by_type(
         if subscribed is None or student["subscribed"] is subscribed
     ]
     return {"ok": True, "data": {"students": students}}
+
+
+async def list_payments_by_type(
+    group_type: str,
+    academy_service: AcademyService,
+) -> fastapi.responses.JSONResponse:
+    status_code, payload = await academy_service.list_sport_payments(group_type)
+    return fastapi.responses.JSONResponse(status_code=status_code, content=payload)
+
+
+async def get_bot_content_by_type(
+    group_type: str,
+    academy_service: AcademyService,
+) -> fastapi.responses.JSONResponse:
+    status_code, payload = await academy_service.get_sport_bot_content(group_type)
+    return fastapi.responses.JSONResponse(status_code=status_code, content=payload)
 
 
 def unique_groups_by_id(group_rows: list[dict[str, typing.Any]]) -> dict[int, dict[str, typing.Any]]:
