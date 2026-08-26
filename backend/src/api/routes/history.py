@@ -21,7 +21,7 @@ async def list_history(
     channel: str | None = fastapi.Query(default=None, description="Filter by channel: whatsapp or manager"),
     page: int | None = fastapi.Query(default=None, ge=1),
     page_size: int | None = fastapi.Query(default=None, ge=1, le=100),
-    _: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.MANAGER)),
+    _: Account = fastapi.Depends(require_roles(Role.SUPER_ADMIN)),
     history_service: HistoryService = fastapi.Depends(get_history_service),
 ) -> typing.Any:
     return await history_service.list_history(
@@ -39,7 +39,7 @@ async def list_history_by_range(
     end_date: str,
     page: int | None = fastapi.Query(default=None, ge=1),
     page_size: int | None = fastapi.Query(default=None, ge=1, le=100),
-    _: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.MANAGER)),
+    _: Account = fastapi.Depends(require_roles(Role.SUPER_ADMIN)),
     history_service: HistoryService = fastapi.Depends(get_history_service),
 ) -> typing.Any:
     return await history_service.list_history_by_range(
@@ -56,7 +56,7 @@ async def list_history_by_source(
     source: str,
     page: int | None = fastapi.Query(default=None, ge=1),
     page_size: int | None = fastapi.Query(default=None, ge=1, le=100),
-    _: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.MANAGER)),
+    _: Account = fastapi.Depends(require_roles(Role.SUPER_ADMIN)),
     history_service: HistoryService = fastapi.Depends(get_history_service),
 ) -> typing.Any:
     return await history_service.list_history_by_source(
@@ -73,7 +73,7 @@ async def list_booking_history(
     booking_id: int,
     page: int | None = fastapi.Query(default=None, ge=1),
     page_size: int | None = fastapi.Query(default=None, ge=1, le=100),
-    _: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.MANAGER)),
+    _: Account = fastapi.Depends(require_roles(Role.SUPER_ADMIN)),
     history_service: HistoryService = fastapi.Depends(get_history_service),
 ) -> typing.Any:
     return await history_service.list_booking_history(

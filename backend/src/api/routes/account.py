@@ -22,7 +22,7 @@ router = fastapi.APIRouter(prefix="/accounts", tags=["accounts"])
     status_code=fastapi.status.HTTP_200_OK,
 )
 async def get_accounts(
-    _: Account = fastapi.Depends(require_roles(Role.ADMIN)),
+    _: Account = fastapi.Depends(require_roles(Role.SUPER_ADMIN)),
     account_service: AccountService = fastapi.Depends(get_account_service),
 ) -> list[AccountInResponse]:
     return await account_service.get_accounts()
@@ -36,7 +36,7 @@ async def get_accounts(
 )
 async def get_account(
     id: int,
-    _: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.MANAGER)),
+    _: Account = fastapi.Depends(require_roles(Role.SUPER_ADMIN)),
     account_service: AccountService = fastapi.Depends(get_account_service),
 ) -> AccountInResponse:
     try:
@@ -53,7 +53,7 @@ async def get_account(
 )
 async def update_account(
     query_id: int,
-    _: Account = fastapi.Depends(require_roles(Role.ADMIN)),
+    _: Account = fastapi.Depends(require_roles(Role.SUPER_ADMIN)),
     update_username: str | None = None,
     update_email: pydantic.EmailStr | None = None,
     update_password: str | None = None,
@@ -73,7 +73,7 @@ async def update_account(
 )
 async def delete_account(
     id: int,
-    _: Account = fastapi.Depends(require_roles(Role.ADMIN)),
+    _: Account = fastapi.Depends(require_roles(Role.SUPER_ADMIN)),
     account_service: AccountService = fastapi.Depends(get_account_service),
 ) -> dict[str, str]:
     try:

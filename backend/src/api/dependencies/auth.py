@@ -57,7 +57,8 @@ get_current_user_optional = current_user_dependency.get_current_user_optional
 
 def require_roles(*roles: Role) -> typing.Callable[..., typing.Awaitable[Account]]:
     async def _check_role(current_user: Account = fastapi.Depends(get_current_user)) -> Account:
-        if current_user.role not in [r.value for r in roles]:
+        allowed_roles = _role_values_with_super_admin(roles)
+        if current_user.role not in allowed_roles:
             raise fastapi.HTTPException(
                 status_code=fastapi.status.HTTP_403_FORBIDDEN,
                 detail="Insufficient permissions",
@@ -97,7 +98,8 @@ def require_roles_or_manager_api_key(*roles: Role) -> typing.Callable[..., typin
         if not account:
             raise fastapi.HTTPException(status_code=fastapi.status.HTTP_404_NOT_FOUND, detail="Account not found")
 
-        if account.role not in [r.value for r in roles]:
+        allowed_roles = _role_values_with_super_admin(roles)
+        if account.role not in allowed_roles:
             raise fastapi.HTTPException(
                 status_code=fastapi.status.HTTP_403_FORBIDDEN,
                 detail="Insufficient permissions",
@@ -105,3 +107,9 @@ def require_roles_or_manager_api_key(*roles: Role) -> typing.Callable[..., typin
         return account  # type: ignore
 
     return _check_role_or_key
+
+
+def _role_values_with_super_admin(roles: tuple[Role, ...]) -> set[str]:
+    allowed_roles = {role.value for role in roles}
+    allowed_roles.add(Role.SUPER_ADMIN.value)
+    return allowed_roles
