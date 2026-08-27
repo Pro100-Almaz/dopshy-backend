@@ -8,6 +8,7 @@ from src.services.account import AccountService
 from src.services.academy import AcademyService
 from src.services.booking import BookingService
 from src.services.bot_status import BotStatusService
+from src.services.document import DocumentService
 from src.services.field import FieldService
 from src.services.history import HistoryService
 
@@ -37,6 +38,10 @@ def get_bot_status_service() -> BotStatusService:
 
 def get_academy_service() -> AcademyService:
     return AcademyService()
+
+
+def get_document_service() -> DocumentService:
+    return DocumentService()
 
 
 def get_history_service() -> HistoryService:

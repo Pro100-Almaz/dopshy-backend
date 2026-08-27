@@ -11,11 +11,17 @@ from src.models.schemas.booking import (
     BookingInCreateAuthenticated,
     BookingInCreateByManager,
     BookingOut,
-    BookingStatusUpdate, BotBookingRaw, BookingInUpdate,
+    BookingStatusUpdate,
+    BotBookedSlotOut,
+    BotBookingRaw,
+    BookingInUpdate,
 )
 from src.services.booking import BookingService
 from src.utilities.exceptions.database import EntityDoesNotExist
-from src.utilities.exceptions.http.exc_404 import http_404_exc_booking_not_found_request, http_404_exc_field_not_found_request
+from src.utilities.exceptions.http.exc_404 import (
+    http_404_exc_booking_not_found_request,
+    http_404_exc_field_not_found_request,
+)
 
 router = fastapi.APIRouter(prefix="/bookings", tags=["bookings"])
 
@@ -105,15 +111,50 @@ async def list_all_bookings(
     status_code=fastapi.status.HTTP_200_OK,
 )
 async def list_bookings_in_range(
-        start_date: str,
-        end_date: str,
-        _: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.ARENA_MANAGER)),
-        booking_service: BookingService = fastapi.Depends(get_booking_service),
-        field: int | None = fastapi.Query(default=None, ge=1, le=3),
-        page: int | None = fastapi.Query(default=None, ge=1),
-        search: str | None = fastapi.Query(default=None),
+    start_date: str,
+    end_date: str,
+    _: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.ARENA_MANAGER)),
+    booking_service: BookingService = fastapi.Depends(get_booking_service),
+    field: int | None = fastapi.Query(default=None, ge=1, le=3),
+    page: int | None = fastapi.Query(default=None, ge=1),
+    search: str | None = fastapi.Query(default=None),
 ) -> list[BotBookingRaw] | None:
     return await booking_service.get_bookings_in_range(
+        start_date=start_date, end_date=end_date, field=field, page=page, search=search
+    )
+
+
+@router.get(
+    path="/slots",
+    name="bookings:list-booked-slots",
+    response_model=list[BotBookedSlotOut | None],
+    status_code=fastapi.status.HTTP_200_OK,
+)
+async def list_booked_slots(
+    _: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.ARENA_MANAGER)),
+    booking_service: BookingService = fastapi.Depends(get_booking_service),
+    page: int | None = fastapi.Query(default=None, ge=1),
+    search: str | None = fastapi.Query(default=None),
+) -> list[BotBookedSlotOut] | None:
+    return await booking_service.get_all_booked_slots(page=page, search=search)
+
+
+@router.get(
+    path="/slots/range/{start_date}/{end_date}",
+    name="bookings:list-booked-slots-range",
+    response_model=list[BotBookedSlotOut | None],
+    status_code=fastapi.status.HTTP_200_OK,
+)
+async def list_booked_slots_in_range(
+    start_date: str,
+    end_date: str,
+    _: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.ARENA_MANAGER)),
+    booking_service: BookingService = fastapi.Depends(get_booking_service),
+    field: int | None = fastapi.Query(default=None, ge=1, le=3),
+    page: int | None = fastapi.Query(default=None, ge=1),
+    search: str | None = fastapi.Query(default=None),
+) -> list[BotBookedSlotOut] | None:
+    return await booking_service.get_booked_slots_in_range(
         start_date=start_date, end_date=end_date, field=field, page=page, search=search
     )
 
@@ -153,18 +194,15 @@ async def get_booking_detail(
     status_code=fastapi.status.HTTP_200_OK,
 )
 async def update_booking_detail(
-        id: int,
-        payload: BookingInUpdate,
-        current_user: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.ARENA_MANAGER)),
-        booking_service: BookingService = fastapi.Depends(get_booking_service),
+    id: int,
+    payload: BookingInUpdate,
+    current_user: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.ARENA_MANAGER)),
+    booking_service: BookingService = fastapi.Depends(get_booking_service),
 ) -> dict:
     try:
-        return await booking_service.update_booking(
-            booking_id=id, payload=payload, current_user=current_user
-        )
+        return await booking_service.update_booking(booking_id=id, payload=payload, current_user=current_user)
     except EntityDoesNotExist:
         raise await http_404_exc_booking_not_found_request(id=id)
-
 
 
 @router.patch(
