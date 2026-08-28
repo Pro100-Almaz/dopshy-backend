@@ -17,7 +17,7 @@ EXPOSE 8000
 # Install system dependencies
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
-      netcat-openbsd gcc postgresql-client curl \
+      netcat-openbsd gcc postgresql-client curl fonts-dejavu-core \
   && rm -rf /var/lib/apt/lists/*
 
 # Install Poetry
