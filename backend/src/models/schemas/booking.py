@@ -178,6 +178,7 @@ class BotBookingRaw(pydantic.BaseModel):
     paid_avans: decimal.Decimal | None = None
     created_at: datetime.datetime | None = None
     updated_at: datetime.datetime | None = None
+    has_contract: bool = False
 
     model_config = pydantic.ConfigDict(extra="ignore")
 
