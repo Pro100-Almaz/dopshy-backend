@@ -69,10 +69,12 @@ async def batch_bot_status(
     status_code=fastapi.status.HTTP_200_OK,
 )
 async def list_bot_contacts(
+    page: str | None = fastapi.Query(default=None),
+    page_size: str | None = fastapi.Query(default=None),
     _: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.ARENA_MANAGER)),
     bot_status_service: BotStatusService = fastapi.Depends(get_bot_status_service),
 ) -> typing.Any:
-    return await bot_status_service.list_contacts()
+    return await bot_status_service.list_contacts(page=page, page_size=page_size)
 
 
 @router.get(

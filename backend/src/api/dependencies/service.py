@@ -4,10 +4,12 @@ from src.api.dependencies.repository import get_repository
 from src.repository.crud.account import AccountCRUDRepository
 from src.repository.crud.booking import BookingCRUDRepository
 from src.repository.crud.field import FieldCRUDRepository
-from src.services.account import AccountService
 from src.services.academy import AcademyService
+from src.services.account import AccountService
 from src.services.booking import BookingService
 from src.services.bot_status import BotStatusService
+from src.services.contract import ContractService
+from src.services.document import DocumentService
 from src.services.field import FieldService
 from src.services.history import HistoryService
 
@@ -35,8 +37,16 @@ def get_bot_status_service() -> BotStatusService:
     return BotStatusService()
 
 
+def get_contract_service() -> ContractService:
+    return ContractService()
+
+
 def get_academy_service() -> AcademyService:
     return AcademyService()
+
+
+def get_document_service() -> DocumentService:
+    return DocumentService()
 
 
 def get_history_service() -> HistoryService:

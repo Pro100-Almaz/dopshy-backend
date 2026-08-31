@@ -17,7 +17,9 @@ from src.models.schemas.booking import (
     BookingInCreateByManager,
     BookingOut,
     BookingStatusUpdate,
-    BotBookingRaw, BookingInUpdate,
+    BotBookedSlotOut,
+    BotBookingRaw,
+    BookingInUpdate,
 )
 from src.repository.crud.booking import BookingCRUDRepository
 from src.repository.crud.field import FieldCRUDRepository
@@ -29,7 +31,9 @@ class BookingService:
         self.booking_repo = booking_repo
         self.field_repo = field_repo
 
-    async def _compute_total_price(self, field_id: int, start_datetime: datetime.datetime, duration_hours: int) -> float:
+    async def _compute_total_price(
+        self, field_id: int, start_datetime: datetime.datetime, duration_hours: int
+    ) -> float:
         price_per_hour = await self.field_repo.get_price_for_weekday(
             field_id=field_id, day_of_week=start_datetime.weekday()
         )
@@ -104,9 +108,7 @@ class BookingService:
         )
         return BookingDetailOut.model_validate(booking)
 
-    async def get_all_bookings(
-        self, page: int | None = None, search: str | None = None
-    ) -> list[BotBookingRaw]:
+    async def get_all_bookings(self, page: int | None = None, search: str | None = None) -> list[BotBookingRaw]:
         base_url = settings.BOT_URL
         if not base_url:
             raise fastapi.HTTPException(
@@ -122,18 +124,11 @@ class BookingService:
         if search is not None:
             params["search"] = search
 
-        headers = {
-            "Accept": "application/json",
-            "X-API-KEY": settings.MANAGER_API_KEY
-        }
+        headers = {"Accept": "application/json", "X-API-KEY": settings.MANAGER_API_KEY}
 
         async with httpx.AsyncClient(timeout=10.0) as client:
             try:
-                response = await client.get(
-                    url,
-                    headers=headers,
-                    params=params
-                )
+                response = await client.get(url, headers=headers, params=params)
                 response.raise_for_status()
             except httpx.HTTPError as exc:
                 raise fastapi.HTTPException(
@@ -150,9 +145,19 @@ class BookingService:
         data = [BotBookingRaw.model_validate(b) for b in bookings]
         return data
 
+    async def get_all_booked_slots(
+        self, page: int | None = None, search: str | None = None
+    ) -> list[BotBookedSlotOut]:
+        bookings = await self.get_all_bookings(page=page, search=search)
+        return [BotBookedSlotOut.model_validate(booking.model_dump()) for booking in bookings]
+
     async def get_bookings_in_range(
-        self, start_date: str, end_date: str, field: int | None = None,
-        page: int | None = None, search: str | None = None
+        self,
+        start_date: str,
+        end_date: str,
+        field: int | None = None,
+        page: int | None = None,
+        search: str | None = None,
     ) -> list[BotBookingRaw]:
         base_url = settings.BOT_URL
         if not base_url:
@@ -170,39 +175,47 @@ class BookingService:
         if search is not None:
             params["search"] = search
 
-        headers = {
-            "Accept": "application/json",
-            "X-API-KEY": settings.MANAGER_API_KEY
-        }
+        headers = {"Accept": "application/json", "X-API-KEY": settings.MANAGER_API_KEY}
 
         async with httpx.AsyncClient(timeout=10.0) as client:
             try:
-                response = await client.get(
-                    url,
-                    headers=headers,
-                    params=params
-                )
+                response = await client.get(url, headers=headers, params=params)
                 response.raise_for_status()
             except httpx.HTTPError as exc:
-                raise fastapi.HTTPException(status_code=fastapi.status.HTTP_502_BAD_GATEWAY,
+                raise fastapi.HTTPException(
+                    status_code=fastapi.status.HTTP_502_BAD_GATEWAY,
                     detail="Failed to fetch bookings from the bot service.",
                 ) from exc
 
         payload = response.json()
         if isinstance(payload, dict):
-            bookings = (
-                payload.get("data")
-                or payload.get("bookings")
-                or payload.get("results")
-                or []
-            )
+            bookings = payload.get("data") or payload.get("bookings") or payload.get("results") or []
         else:
             bookings = payload
 
         booking_data = [BotBookingRaw.model_validate(b) for b in bookings]
         return booking_data
 
-    async def create_bookings_batch(self, payload: BookingBatchInCreate, current_user: Account | None) -> tuple[int, typing.Any]:
+    async def get_booked_slots_in_range(
+        self,
+        start_date: str,
+        end_date: str,
+        field: int | None = None,
+        page: int | None = None,
+        search: str | None = None,
+    ) -> list[BotBookedSlotOut]:
+        bookings = await self.get_bookings_in_range(
+            start_date=start_date,
+            end_date=end_date,
+            field=field,
+            page=page,
+            search=search,
+        )
+        return [BotBookedSlotOut.model_validate(booking.model_dump()) for booking in bookings]
+
+    async def create_bookings_batch(
+        self, payload: BookingBatchInCreate, current_user: Account | None
+    ) -> tuple[int, typing.Any]:
         base_url = settings.BOT_URL
         if not base_url:
             raise fastapi.HTTPException(
@@ -245,7 +258,6 @@ class BookingService:
             ) from exc
 
         return response.status_code, data
-
 
     async def get_my_bookings(self, current_account: Account) -> list[BookingOut]:
         bookings = await self.booking_repo.read_bookings(account_id=current_account.id)
@@ -306,7 +318,6 @@ class BookingService:
             return data
         return payload
 
-
     async def update_booking(self, booking_id: int, payload: BookingInUpdate, current_user: Account) -> dict[str, str]:
         if current_user is None or current_user.role not in _BOOKING_STAFF_ROLE_VALUES:
             raise fastapi.HTTPException(status_code=fastapi.status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
@@ -354,7 +365,6 @@ class BookingService:
 
         return data
 
-
     async def change_booking_status(
         self, booking_id: int, payload: BookingStatusUpdate, current_account: Account
     ) -> BookingDetailOut:
@@ -373,9 +383,7 @@ class BookingService:
             if not is_staff:
                 # CLIENT must own the booking
                 if booking.account_id != current_account.id:
-                    raise fastapi.HTTPException(
-                        status_code=fastapi.status.HTTP_403_FORBIDDEN, detail="Access denied"
-                    )
+                    raise fastapi.HTTPException(status_code=fastapi.status.HTTP_403_FORBIDDEN, detail="Access denied")
                 # 48h cancellation window
                 now = datetime.datetime.now(tz=booking.start_datetime.tzinfo)
                 delta = booking.start_datetime - now
