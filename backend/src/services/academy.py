@@ -62,10 +62,35 @@ class AcademyService:
     async def list_groups(self) -> tuple[int, typing.Any]:
         return await self._request("GET", "/api/manager/academy_groups")
 
+    async def create_group(self, payload: dict[str, typing.Any]) -> tuple[int, typing.Any]:
+        return await self._request("POST", "/api/manager/academy_groups", json=payload)
+
     async def list_sport_groups(self, sport: str) -> tuple[int, typing.Any]:
         if self._overrides("list_groups"):
             return await self.list_groups()
         return await self._request("GET", f"/api/{sport}/groups")
+
+    async def create_sport_group(self, sport: str, payload: dict[str, typing.Any]) -> tuple[int, typing.Any]:
+        return await self._request("POST", f"/api/{sport}/groups", json=payload)
+
+    async def update_sport_group(
+        self,
+        sport: str,
+        group_id: int,
+        payload: dict[str, typing.Any],
+    ) -> tuple[int, typing.Any]:
+        return await self._request("PATCH", f"/api/{sport}/groups/{group_id}", json=payload)
+
+    async def delete_sport_group(self, sport: str, group_id: int) -> tuple[int, typing.Any]:
+        return await self._request("DELETE", f"/api/{sport}/groups/{group_id}")
+
+    async def assign_sport_student_to_group(
+        self,
+        sport: str,
+        group_id: int,
+        payload: dict[str, typing.Any],
+    ) -> tuple[int, typing.Any]:
+        return await self._request("POST", f"/api/{sport}/groups/{group_id}/students", json=payload)
 
     async def list_sport_trials(
         self,
@@ -182,6 +207,20 @@ class AcademyService:
             json=payload,
         )
 
+    async def delete_group(self, group_id: int) -> tuple[int, typing.Any]:
+        return await self._request("DELETE", f"/api/manager/academy_groups/{group_id}")
+
+    async def assign_student_to_group(
+        self,
+        group_id: int,
+        payload: dict[str, typing.Any],
+    ) -> tuple[int, typing.Any]:
+        return await self._request(
+            "POST",
+            f"/api/manager/academy_groups/{group_id}/students",
+            json=payload,
+        )
+
     async def set_trial_attended(self, trial_id: int, attended: bool) -> tuple[int, typing.Any]:
         return await self._request(
             "PATCH",
@@ -238,6 +277,10 @@ class AcademyService:
             "training_day_label": row.get("training_day_label") or "",
             "start_time": row.get("start_time") or "",
             "end_time": row.get("end_time") or "",
+            "age_min": row.get("age_min"),
+            "age_max": row.get("age_max"),
+            "shift": row.get("shift"),
+            "is_active": row.get("is_active"),
         }
 
     def normalize_trial(

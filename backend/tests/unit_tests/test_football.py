@@ -3,12 +3,16 @@ import typing
 import pytest
 
 from src.api.routes.football import (
+    assign_student_to_football_group,
+    create_football_group,
+    delete_football_group,
     list_football_groups,
     list_football_students,
     list_football_trials,
     set_student_subscribed,
     set_trial_attended,
     set_trial_subscribed,
+    update_football_group,
 )
 from src.api.routes.football import AttendanceUpdate, SubscriptionUpdate
 from src.services.academy import AcademyService
@@ -37,6 +41,10 @@ class FakeAcademyService(AcademyService):
                             "training_day_label": "Вторник",
                             "start_time": "12:00",
                             "end_time": "13:00",
+                            "age_min": 7,
+                            "age_max": 9,
+                            "shift": "morning",
+                            "is_active": True,
                         },
                         {
                             "group_id": 2,
@@ -141,6 +149,32 @@ class FakeAcademyService(AcademyService):
     async def set_student_subscribed(self, student_id: int, subscribed: bool) -> tuple[int, typing.Any]:
         return 200, {"ok": True, "data": {"id": student_id, "subscribed": subscribed}}
 
+    async def create_sport_group(self, sport: str, payload: dict[str, typing.Any]) -> tuple[int, typing.Any]:
+        assert sport == "football"
+        return 200, {"ok": True, "data": {"group_id": 2, **payload}}
+
+    async def update_sport_group(
+        self,
+        sport: str,
+        group_id: int,
+        payload: dict[str, typing.Any],
+    ) -> tuple[int, typing.Any]:
+        assert sport == "football"
+        return 200, {"ok": True, "data": {"group_id": group_id, **payload}}
+
+    async def delete_sport_group(self, sport: str, group_id: int) -> tuple[int, typing.Any]:
+        assert sport == "football"
+        return 200, {"ok": True, "data": {"group_id": group_id, "is_active": False}}
+
+    async def assign_sport_student_to_group(
+        self,
+        sport: str,
+        group_id: int,
+        payload: dict[str, typing.Any],
+    ) -> tuple[int, typing.Any]:
+        assert sport == "football"
+        return 200, {"ok": True, "data": {"group_id": group_id, **payload}}
+
 
 @pytest.mark.asyncio
 async def test_list_football_groups_returns_mock_compatible_rows() -> None:
@@ -153,6 +187,10 @@ async def test_list_football_groups_returns_mock_compatible_rows() -> None:
     assert groups[0]["group_type"] == "football"
     assert groups[0]["training_day"] == "Вторник"
     assert groups[0]["training_day_value"] == 1
+    assert groups[0]["age_min"] == 7
+    assert groups[0]["age_max"] == 9
+    assert groups[0]["shift"] == "morning"
+    assert groups[0]["is_active"] is True
 
 
 @pytest.mark.asyncio
@@ -182,6 +220,24 @@ async def test_list_football_students_filters_subscribed() -> None:
 
 @pytest.mark.asyncio
 async def test_football_mutations_proxy_to_academy_service() -> None:
+    group_create = await create_football_group(
+        payload={"group_name": "Football Kids A"},
+        academy_service=FakeAcademyService(),
+    )
+    group_update = await update_football_group(
+        group_id=2,
+        payload={"max_cap": 18},
+        academy_service=FakeAcademyService(),
+    )
+    group_delete = await delete_football_group(
+        group_id=2,
+        academy_service=FakeAcademyService(),
+    )
+    assign_student = await assign_student_to_football_group(
+        group_id=2,
+        payload={"student_id": "22"},
+        academy_service=FakeAcademyService(),
+    )
     attended = await set_trial_attended(
         trial_id=54,
         payload=AttendanceUpdate(attended=True),
@@ -198,6 +254,10 @@ async def test_football_mutations_proxy_to_academy_service() -> None:
         academy_service=FakeAcademyService(),
     )
 
+    assert group_create.status_code == 200
+    assert group_update.status_code == 200
+    assert group_delete.status_code == 200
+    assert assign_student.status_code == 200
     assert attended.status_code == 200
     assert trial_subscribed.status_code == 200
     assert student_subscribed.status_code == 200
