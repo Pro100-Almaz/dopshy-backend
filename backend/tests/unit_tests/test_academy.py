@@ -8,6 +8,9 @@ from src.api.routes.academy import (
     AcademyGroupUpdate,
     AttendanceUpdate,
     SubscriptionUpdate,
+    assign_student_to_academy_group,
+    create_academy_group,
+    delete_academy_group,
     get_academy_group_trials,
     list_academy_groups,
     set_academy_trial_attended,
@@ -196,6 +199,103 @@ async def test_academy_service_updates_group_end_time_without_other_group_fields
     }
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("call_name", "expected_method", "expected_url", "expected_body"),
+    [
+        (
+            "create_group",
+            "POST",
+            "https://bot.example/api/manager/academy_groups",
+            '{"group_name":"Kids A","group_type":"football"}',
+        ),
+        (
+            "delete_group",
+            "DELETE",
+            "https://bot.example/api/manager/academy_groups/12",
+            "",
+        ),
+        (
+            "assign_student_to_group",
+            "POST",
+            "https://bot.example/api/manager/academy_groups/12/students",
+            '{"student_id":"123"}',
+        ),
+        (
+            "create_sport_group",
+            "POST",
+            "https://bot.example/api/football/groups",
+            '{"group_name":"Kids A"}',
+        ),
+        (
+            "update_sport_group",
+            "PATCH",
+            "https://bot.example/api/football/groups/12",
+            '{"max_cap":12}',
+        ),
+        (
+            "delete_sport_group",
+            "DELETE",
+            "https://bot.example/api/football/groups/12",
+            "",
+        ),
+        (
+            "assign_sport_student_to_group",
+            "POST",
+            "https://bot.example/api/football/groups/12/students",
+            '{"student_id":"123"}',
+        ),
+    ],
+)
+async def test_academy_service_proxies_group_mutations(
+    monkeypatch: pytest.MonkeyPatch,
+    call_name: str,
+    expected_method: str,
+    expected_url: str,
+    expected_body: str,
+) -> None:
+    captured_request = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured_request["method"] = request.method
+        captured_request["url"] = str(request.url)
+        captured_request["body"] = request.read().decode()
+        return httpx.Response(200, json={"ok": True, "data": {"group_id": 12}})
+
+    async_client = httpx.AsyncClient
+    monkeypatch.setattr(settings, "BOT_URL", "https://bot.example")
+    monkeypatch.setattr(settings, "MANAGER_API_KEY", "secret")
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **_: async_client(transport=httpx.MockTransport(handler)))
+
+    service = AcademyService()
+    if call_name == "create_group":
+        status_code, payload = await service.create_group(payload={"group_name": "Kids A", "group_type": "football"})
+    elif call_name == "delete_group":
+        status_code, payload = await service.delete_group(group_id=12)
+    elif call_name == "assign_student_to_group":
+        status_code, payload = await service.assign_student_to_group(group_id=12, payload={"student_id": "123"})
+    elif call_name == "create_sport_group":
+        status_code, payload = await service.create_sport_group("football", payload={"group_name": "Kids A"})
+    elif call_name == "update_sport_group":
+        status_code, payload = await service.update_sport_group("football", group_id=12, payload={"max_cap": 12})
+    elif call_name == "delete_sport_group":
+        status_code, payload = await service.delete_sport_group("football", group_id=12)
+    else:
+        status_code, payload = await service.assign_sport_student_to_group(
+            "football",
+            group_id=12,
+            payload={"student_id": "123"},
+        )
+
+    assert status_code == 200
+    assert payload == {"ok": True, "data": {"group_id": 12}}
+    assert captured_request == {
+        "method": expected_method,
+        "url": expected_url,
+        "body": expected_body,
+    }
+
+
 def test_academy_group_update_preserves_only_explicitly_set_fields() -> None:
     payload = AcademyGroupUpdate(start_time="10:00")
 
@@ -206,10 +306,19 @@ class FakeRouteAcademyService(AcademyService):
     async def list_groups(self) -> tuple[int, typing.Any]:
         return 200, {"ok": True, "data": {"groups": {"boxing": []}}}
 
+    async def create_group(self, payload: dict[str, typing.Any]) -> tuple[int, typing.Any]:
+        return 200, {"ok": True, "data": {"group_id": 12, **payload}}
+
     async def get_group_trials(self, group_id: int) -> tuple[int, typing.Any]:
         return 200, {"ok": True, "data": {"group_id": group_id, "trials": []}}
 
     async def update_group(self, group_id: int, payload: dict[str, typing.Any]) -> tuple[int, typing.Any]:
+        return 200, {"ok": True, "data": {"group_id": group_id, **payload}}
+
+    async def delete_group(self, group_id: int) -> tuple[int, typing.Any]:
+        return 200, {"ok": True, "data": {"group_id": group_id, "is_active": False}}
+
+    async def assign_student_to_group(self, group_id: int, payload: dict[str, typing.Any]) -> tuple[int, typing.Any]:
         return 200, {"ok": True, "data": {"group_id": group_id, **payload}}
 
     async def set_trial_attended(self, trial_id: int, attended: bool) -> tuple[int, typing.Any]:
@@ -227,10 +336,20 @@ async def test_academy_manager_routes_proxy_to_service() -> None:
     service = FakeRouteAcademyService()
 
     groups = await list_academy_groups(academy_service=service)
+    group_create = await create_academy_group(
+        payload={"group_name": "Kids A", "group_type": "football"},
+        academy_service=service,
+    )
     trials = await get_academy_group_trials(group_id=12, academy_service=service)
     group_update = await update_academy_group(
         group_id=12,
         payload=AcademyGroupUpdate(group_name="Kids A"),
+        academy_service=service,
+    )
+    group_delete = await delete_academy_group(group_id=12, academy_service=service)
+    assign_student = await assign_student_to_academy_group(
+        group_id=12,
+        payload={"student_id": "123"},
         academy_service=service,
     )
     attended = await set_academy_trial_attended(
@@ -250,8 +369,11 @@ async def test_academy_manager_routes_proxy_to_service() -> None:
     )
 
     assert groups.status_code == 200
+    assert group_create.status_code == 200
     assert trials.status_code == 200
     assert group_update.status_code == 200
+    assert group_delete.status_code == 200
+    assert assign_student.status_code == 200
     assert attended.status_code == 200
     assert trial_subscribed.status_code == 200
     assert user_subscribed.status_code == 200

@@ -24,6 +24,57 @@ async def list_groups_by_type(
     return {"ok": True, "data": {"groups": groups}}
 
 
+async def create_group_by_type(
+    group_type: str,
+    payload: dict[str, typing.Any],
+    academy_service: AcademyService,
+) -> fastapi.responses.JSONResponse:
+    status_code, response_payload = await academy_service.create_sport_group(group_type, payload=payload)
+    return fastapi.responses.JSONResponse(status_code=status_code, content=response_payload)
+
+
+async def update_group_by_type(
+    group_type: str,
+    group_id: int,
+    payload: dict[str, typing.Any],
+    academy_service: AcademyService,
+) -> fastapi.responses.JSONResponse:
+    if not payload:
+        raise fastapi.HTTPException(
+            status_code=fastapi.status.HTTP_400_BAD_REQUEST,
+            detail="At least one group field must be provided.",
+        )
+    status_code, response_payload = await academy_service.update_sport_group(
+        group_type,
+        group_id=group_id,
+        payload=payload,
+    )
+    return fastapi.responses.JSONResponse(status_code=status_code, content=response_payload)
+
+
+async def delete_group_by_type(
+    group_type: str,
+    group_id: int,
+    academy_service: AcademyService,
+) -> fastapi.responses.JSONResponse:
+    status_code, response_payload = await academy_service.delete_sport_group(group_type, group_id=group_id)
+    return fastapi.responses.JSONResponse(status_code=status_code, content=response_payload)
+
+
+async def assign_student_to_group_by_type(
+    group_type: str,
+    group_id: int,
+    payload: dict[str, typing.Any],
+    academy_service: AcademyService,
+) -> fastapi.responses.JSONResponse:
+    status_code, response_payload = await academy_service.assign_sport_student_to_group(
+        group_type,
+        group_id=group_id,
+        payload=payload,
+    )
+    return fastapi.responses.JSONResponse(status_code=status_code, content=response_payload)
+
+
 async def list_trials_by_type(
     group_type: str,
     subscribed: bool | None,
