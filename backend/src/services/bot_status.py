@@ -6,7 +6,7 @@ import fastapi
 import httpx
 
 from src.config.manager import settings
-from src.models.schemas.bot_status import BotEnabledStatus, BotStatusBatchIn
+from src.models.schemas.bot_status import BotEnabledStatus, BotStatusBatchIn, BotType
 
 
 class BotStatusService:
@@ -106,21 +106,26 @@ class BotStatusService:
         *,
         page: str | None = None,
         page_size: str | None = None,
+        bot_type: BotType = "arena",
     ) -> typing.Any:
         """Unified customer list from the bot: WhatsApp texters + bookers, each
         with live pause status. Returned as-is from the bot service."""
-        params = {"page": page, "page_size": page_size}
+        params = {"page": page, "page_size": page_size, "bot_type": bot_type}
         response = await self._request("GET", "/api/manager/contacts", params=params)
         return self._json(response)
 
-    async def get_bot_enabled_status(self) -> BotEnabledStatus:
-        response = await self._request("GET", "/api/manager/is_messaging_enabled")
+    async def get_bot_enabled_status(self, *, bot_type: BotType = "arena") -> BotEnabledStatus:
+        response = await self._request(
+            "GET",
+            "/api/manager/is_messaging_enabled",
+            params={"bot_type": bot_type},
+        )
         return BotEnabledStatus.model_validate(self._json(response))
 
-    async def set_bot_enabled_status(self, enabled: bool) -> BotEnabledStatus:
+    async def set_bot_enabled_status(self, *, enabled: bool, bot_type: BotType = "arena") -> BotEnabledStatus:
         response = await self._request(
             "POST",
             "/api/manager/change_messaging_enabled",
-            json={"enabled": enabled},
+            json={"enabled": enabled, "bot_type": bot_type},
         )
         return BotEnabledStatus.model_validate(self._json(response))

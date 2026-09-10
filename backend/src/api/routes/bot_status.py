@@ -12,6 +12,7 @@ from src.models.schemas.bot_status import (
     BotEnabledStatusIn,
     BotStatusBatchIn,
     BotStatusToggleOut,
+    BotType,
 )
 from src.services.bot_status import BotStatusService
 
@@ -25,10 +26,11 @@ router = fastapi.APIRouter(prefix="/bot-status", tags=["bot-status"])
     status_code=fastapi.status.HTTP_200_OK,
 )
 async def get_bot_enabled_status(
+    bot_type: BotType = fastapi.Query(default="arena"),
     _: Account = fastapi.Depends(require_roles(Role.SUPER_ADMIN)),
     bot_status_service: BotStatusService = fastapi.Depends(get_bot_status_service),
 ) -> BotEnabledStatus:
-    return await bot_status_service.get_bot_enabled_status()
+    return await bot_status_service.get_bot_enabled_status(bot_type=bot_type)
 
 
 @router.patch(
@@ -42,10 +44,13 @@ async def patch_bot_enabled_status(
     account: Account = fastapi.Depends(require_roles(Role.SUPER_ADMIN)),
     bot_status_service: BotStatusService = fastapi.Depends(get_bot_status_service),
 ) -> BotEnabledStatus:
-    enabled_status = await bot_status_service.set_bot_enabled_status(enabled=payload.enabled)
+    enabled_status = await bot_status_service.set_bot_enabled_status(
+        enabled=payload.enabled,
+        bot_type=payload.bot_type,
+    )
     loguru.logger.info(
-        f"Global bot switch set to is_enabled={enabled_status.is_enabled} by account "
-        f"id={account.id} username={account.username}"
+        f"Bot switch for bot_type={payload.bot_type} set to is_enabled={enabled_status.is_enabled} "
+        f"by account id={account.id} username={account.username}"
     )
     return enabled_status
 
@@ -71,10 +76,13 @@ async def batch_bot_status(
 async def list_bot_contacts(
     page: str | None = fastapi.Query(default=None),
     page_size: str | None = fastapi.Query(default=None),
-    _: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.ARENA_MANAGER)),
+    bot_type: BotType = fastapi.Query(default="arena"),
+    _: Account = fastapi.Depends(
+        require_roles(Role.ADMIN, Role.ARENA_MANAGER, Role.FOOTBALL_MANAGER, Role.BOXING_MANAGER)
+    ),
     bot_status_service: BotStatusService = fastapi.Depends(get_bot_status_service),
 ) -> typing.Any:
-    return await bot_status_service.list_contacts(page=page, page_size=page_size)
+    return await bot_status_service.list_contacts(page=page, page_size=page_size, bot_type=bot_type)
 
 
 @router.get(
