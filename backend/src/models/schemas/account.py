@@ -2,6 +2,7 @@ import datetime
 
 import pydantic
 
+from src.models.enums.role import Role
 from src.models.schemas.base import BaseSchemaModel
 
 
@@ -12,9 +13,21 @@ class AccountInCreate(BaseSchemaModel):
 
 
 class AccountInUpdate(BaseSchemaModel):
-    username: str | None
-    email: str | None
-    password: str | None
+    username: str | None = None
+    email: pydantic.EmailStr | None = None
+    password: str | None = None
+
+
+class AccountAdminCreate(AccountInCreate):
+    role: Role = Role.MANAGER
+    is_active: bool = True
+    is_verified: bool = True
+
+
+class AccountAdminUpdate(AccountInUpdate):
+    role: Role | None = None
+    is_active: bool | None = None
+    is_verified: bool | None = None
 
 
 class AccountInLogin(BaseSchemaModel):
