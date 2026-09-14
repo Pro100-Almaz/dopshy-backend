@@ -65,6 +65,31 @@ class AcademyService:
     async def create_group(self, payload: dict[str, typing.Any]) -> tuple[int, typing.Any]:
         return await self._request("POST", "/api/manager/academy_groups", json=payload)
 
+    async def list_academy_users(self, group_type: str | None = None) -> tuple[int, typing.Any]:
+        params = {"group_type": group_type} if group_type is not None else None
+        return await self._request("GET", "/api/manager/academy_users", params=params)
+
+    async def create_academy_user(self, payload: dict[str, typing.Any]) -> tuple[int, typing.Any]:
+        return await self._request("POST", "/api/manager/academy_users", json=payload)
+
+    async def update_academy_user(self, user_id: int, payload: dict[str, typing.Any]) -> tuple[int, typing.Any]:
+        return await self._request("PATCH", f"/api/manager/academy_users/{user_id}", json=payload)
+
+    async def assign_academy_user(self, user_id: int, group_id: int) -> tuple[int, typing.Any]:
+        return await self._request(
+            "PATCH",
+            f"/api/manager/academy_users/{user_id}/assignment",
+            json={"group_id": group_id},
+        )
+
+    async def deassign_academy_user(
+        self,
+        user_id: int,
+        group_type: str | None = None,
+    ) -> tuple[int, typing.Any]:
+        params = {"group_type": group_type} if group_type is not None else None
+        return await self._request("DELETE", f"/api/manager/academy_users/{user_id}/assignment", params=params)
+
     async def list_sport_groups(self, sport: str) -> tuple[int, typing.Any]:
         if self._overrides("list_groups"):
             return await self.list_groups()
@@ -91,6 +116,32 @@ class AcademyService:
         payload: dict[str, typing.Any],
     ) -> tuple[int, typing.Any]:
         return await self._request("POST", f"/api/{sport}/groups/{group_id}/students", json=payload)
+
+    async def create_sport_student(self, sport: str, payload: dict[str, typing.Any]) -> tuple[int, typing.Any]:
+        return await self._request("POST", f"/api/{sport}/students", json=payload)
+
+    async def update_sport_student(
+        self,
+        sport: str,
+        student_id: int,
+        payload: dict[str, typing.Any],
+    ) -> tuple[int, typing.Any]:
+        return await self._request("PATCH", f"/api/{sport}/students/{student_id}", json=payload)
+
+    async def assign_sport_student(
+        self,
+        sport: str,
+        student_id: int,
+        group_id: int,
+    ) -> tuple[int, typing.Any]:
+        return await self._request(
+            "PATCH",
+            f"/api/{sport}/students/{student_id}/assignment",
+            json={"group_id": group_id},
+        )
+
+    async def deassign_sport_student(self, sport: str, student_id: int) -> tuple[int, typing.Any]:
+        return await self._request("DELETE", f"/api/{sport}/students/{student_id}/assignment")
 
     async def list_sport_trials(
         self,

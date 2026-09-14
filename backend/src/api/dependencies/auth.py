@@ -47,6 +47,11 @@ class CurrentUser:
         account = await account_repo.read_account_by_email(email=email)
         if not account:
             raise fastapi.HTTPException(status_code=fastapi.status.HTTP_404_NOT_FOUND, detail="Account not found")
+        if not getattr(account, "is_active", True):
+            raise fastapi.HTTPException(
+                status_code=fastapi.status.HTTP_403_FORBIDDEN,
+                detail="Account is inactive",
+            )
 
         return account  # type: ignore
 
@@ -101,6 +106,11 @@ def require_roles_or_manager_api_key(*roles: Role) -> typing.Callable[..., typin
         account = await account_repo.read_account_by_email(email=email)
         if not account:
             raise fastapi.HTTPException(status_code=fastapi.status.HTTP_404_NOT_FOUND, detail="Account not found")
+        if not getattr(account, "is_active", True):
+            raise fastapi.HTTPException(
+                status_code=fastapi.status.HTTP_403_FORBIDDEN,
+                detail="Account is inactive",
+            )
 
         allowed_roles = _role_values_with_super_admin(roles)
         if account.role not in allowed_roles:
