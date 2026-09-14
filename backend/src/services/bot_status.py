@@ -6,7 +6,7 @@ import fastapi
 import httpx
 
 from src.config.manager import settings
-from src.models.schemas.bot_status import BotEnabledStatus, BotStatusBatchIn
+from src.models.schemas.bot_status import BotEnabledStatus, BotStatusBatchIn, BotType
 
 
 class BotStatusService:
@@ -22,6 +22,7 @@ class BotStatusService:
         path: str,
         *,
         json: typing.Any | None = None,
+        params: dict[str, typing.Any] | None = None,
     ) -> httpx.Response:
         base_url = settings.BOT_URL
         if not base_url:
@@ -35,9 +36,16 @@ class BotStatusService:
             "Accept": "application/json",
             "X-API-KEY": os.getenv("MANAGER_API_KEY") or settings.MANAGER_API_KEY or "",
         }
+        clean_params = {key: value for key, value in (params or {}).items() if value is not None}
         async with httpx.AsyncClient(timeout=10.0) as client:
             try:
-                response = await client.request(method, url, headers=headers, json=json)
+                response = await client.request(
+                    method,
+                    url,
+                    headers=headers,
+                    json=json,
+                    params=clean_params,
+                )
             except httpx.HTTPError as exc:
                 raise fastapi.HTTPException(
                     status_code=fastapi.status.HTTP_502_BAD_GATEWAY,
@@ -93,20 +101,31 @@ class BotStatusService:
         response = await self._request("POST", "/api/manager/bot_status/batch", json=body)
         return self._json(response)
 
-    async def list_contacts(self) -> typing.Any:
+    async def list_contacts(
+        self,
+        *,
+        page: str | None = None,
+        page_size: str | None = None,
+        bot_type: BotType = "arena",
+    ) -> typing.Any:
         """Unified customer list from the bot: WhatsApp texters + bookers, each
         with live pause status. Returned as-is from the bot service."""
-        response = await self._request("GET", "/api/manager/contacts")
+        params = {"page": page, "page_size": page_size, "bot_type": bot_type}
+        response = await self._request("GET", "/api/manager/contacts", params=params)
         return self._json(response)
 
-    async def get_bot_enabled_status(self) -> BotEnabledStatus:
-        response = await self._request("GET", "/api/manager/is_messaging_enabled")
+    async def get_bot_enabled_status(self, *, bot_type: BotType = "arena") -> BotEnabledStatus:
+        response = await self._request(
+            "GET",
+            "/api/manager/is_messaging_enabled",
+            params={"bot_type": bot_type},
+        )
         return BotEnabledStatus.model_validate(self._json(response))
 
-    async def set_bot_enabled_status(self, enabled: bool) -> BotEnabledStatus:
+    async def set_bot_enabled_status(self, *, enabled: bool, bot_type: BotType = "arena") -> BotEnabledStatus:
         response = await self._request(
             "POST",
             "/api/manager/change_messaging_enabled",
-            json={"enabled": enabled},
+            json={"enabled": enabled, "bot_type": bot_type},
         )
         return BotEnabledStatus.model_validate(self._json(response))

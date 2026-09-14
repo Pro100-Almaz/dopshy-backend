@@ -1,4 +1,8 @@
 import pydantic
+import typing
+
+
+BotType = typing.Literal["arena", "football_academy", "boxing_academy"]
 
 
 class BotStatusBatchIn(pydantic.BaseModel):
@@ -18,3 +22,4 @@ class BotEnabledStatus(pydantic.BaseModel):
 
 class BotEnabledStatusIn(pydantic.BaseModel):
     enabled: bool = pydantic.Field(strict=True)
+    bot_type: BotType = "arena"

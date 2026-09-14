@@ -4,11 +4,15 @@ import fastapi
 import pydantic
 
 from src.api.routes.academy_type import (
+    assign_student_to_group_by_type,
+    create_group_by_type,
+    delete_group_by_type,
     get_bot_content_by_type,
     list_groups_by_type,
     list_payments_by_type,
     list_students_by_type,
     list_trials_by_type,
+    update_group_by_type,
 )
 from src.api.dependencies.auth import require_roles_or_manager_api_key
 from src.api.dependencies.service import get_academy_service
@@ -71,6 +75,60 @@ async def list_football_groups(
     academy_service: AcademyService = fastapi.Depends(get_academy_service),
 ) -> dict[str, typing.Any]:
     return await list_groups_by_type("football", academy_service)
+
+
+@router.post(
+    path="/groups",
+    name="football:create-group",
+    status_code=fastapi.status.HTTP_200_OK,
+)
+async def create_football_group(
+    payload: dict[str, typing.Any] = fastapi.Body(...),
+    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN, Role.FOOTBALL_MANAGER)),
+    academy_service: AcademyService = fastapi.Depends(get_academy_service),
+) -> fastapi.responses.JSONResponse:
+    return await create_group_by_type("football", payload, academy_service)
+
+
+@router.patch(
+    path="/groups/{group_id}",
+    name="football:update-group",
+    status_code=fastapi.status.HTTP_200_OK,
+)
+async def update_football_group(
+    group_id: int,
+    payload: dict[str, typing.Any] = fastapi.Body(default_factory=dict),
+    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN, Role.FOOTBALL_MANAGER)),
+    academy_service: AcademyService = fastapi.Depends(get_academy_service),
+) -> fastapi.responses.JSONResponse:
+    return await update_group_by_type("football", group_id, payload, academy_service)
+
+
+@router.delete(
+    path="/groups/{group_id}",
+    name="football:delete-group",
+    status_code=fastapi.status.HTTP_200_OK,
+)
+async def delete_football_group(
+    group_id: int,
+    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN, Role.FOOTBALL_MANAGER)),
+    academy_service: AcademyService = fastapi.Depends(get_academy_service),
+) -> fastapi.responses.JSONResponse:
+    return await delete_group_by_type("football", group_id, academy_service)
+
+
+@router.post(
+    path="/groups/{group_id}/students",
+    name="football:assign-student-to-group",
+    status_code=fastapi.status.HTTP_200_OK,
+)
+async def assign_student_to_football_group(
+    group_id: int,
+    payload: dict[str, typing.Any] = fastapi.Body(...),
+    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN, Role.FOOTBALL_MANAGER)),
+    academy_service: AcademyService = fastapi.Depends(get_academy_service),
+) -> fastapi.responses.JSONResponse:
+    return await assign_student_to_group_by_type("football", group_id, payload, academy_service)
 
 
 @router.get(

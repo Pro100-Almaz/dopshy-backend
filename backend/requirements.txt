@@ -21,6 +21,7 @@ python-decouple
 python-jose
 python-slugify
 pydantic-settings
+reportlab
 pytest
 pytest-asyncio
 pytest-cov

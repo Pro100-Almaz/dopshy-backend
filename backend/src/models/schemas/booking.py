@@ -58,6 +58,7 @@ class BookingInCreateByManager(pydantic.BaseModel):
     duration_hours: int = pydantic.Field(ge=1)
     internal_note: str | None = None
 
+
 class BookingInUpdate(pydantic.BaseModel):
 
     field_id: int | None = None
@@ -72,19 +73,19 @@ class BookingInUpdate(pydantic.BaseModel):
     paid_avans: decimal.Decimal | None = None
     source: str | None = None
 
+
 class BatchSlotIn(pydantic.BaseModel):
 
     field: int = pydantic.Field(gt=0)
-    date: str = pydantic.Field(min_length=1)         # "2026-07-20" — first occurrence / start date
-    time_start: str = pydantic.Field(min_length=1)   # "10:00"
-    time_end: str = pydantic.Field(min_length=1)     # "11:00"; may be "24:00" = end of day
-    repeat_mode: RepeatMode = RepeatMode.NONE        # "none" | "daily" | "weekly" | "monthly"
-    repeat_until: str | None = None                  # "yyyy-mm-dd"; required only when repeat_mode != "none"
+    date: str = pydantic.Field(min_length=1)  # "2026-07-20" — first occurrence / start date
+    time_start: str = pydantic.Field(min_length=1)  # "10:00"
+    time_end: str = pydantic.Field(min_length=1)  # "11:00"; may be "24:00" = end of day
+    repeat_mode: RepeatMode = RepeatMode.NONE  # "none" | "daily" | "weekly" | "monthly"
+    repeat_until: str | None = None  # "yyyy-mm-dd"; required only when repeat_mode != "none"
 
 
 class BookingBatchInCreate(pydantic.BaseModel):
-    """Batch booking body proxied to the bot's POST /api/manager/bookings/batch.
-    """
+    """Batch booking body proxied to the bot's POST /api/manager/bookings/batch."""
 
     slots: list[BatchSlotIn] = pydantic.Field(min_length=1)
     customer: str | None = None
@@ -95,7 +96,6 @@ class BookingBatchInCreate(pydantic.BaseModel):
     reserved_until: int | None = None
     updated_by: str | None = None
     source: str | None = None
-
 
 
 class BookingStatusUpdate(pydantic.BaseModel):
@@ -127,9 +127,39 @@ class BookingDetailOut(BookingOut):
     status_history: list[BookingStatusHistoryOut] = []
 
 
+class BotBookedSlotOut(pydantic.BaseModel):
+    """Booked slot row without customer name or payment data."""
+
+    id: int
+    field: int | None = None
+    phone: str | None = None
+    time_start: datetime.time | None = None
+    time_end: datetime.time | None = None
+    state: str
+    source: str
+    notes: str | None = None
+    date: datetime.date | None = None
+    reserved_until: str | None = None
+    created_at: datetime.datetime | None = None
+    updated_at: datetime.datetime | None = None
+
+    model_config = pydantic.ConfigDict(extra="ignore")
+
+    @pydantic.field_validator(
+        "field",
+        "time_start",
+        "time_end",
+        "date",
+        mode="before",
+    )
+    @classmethod
+    def _blank_to_none(cls, v: object) -> object:
+        return None if v == "" else v
+
+
 class BotBookingRaw(pydantic.BaseModel):
-    """Raw booking row as returned by the bot service.
-    """
+    """Raw booking row as returned by the bot service."""
+
     id: int
     field: int | None = None
     customer_name: str | None = None
@@ -148,6 +178,7 @@ class BotBookingRaw(pydantic.BaseModel):
     paid_avans: decimal.Decimal | None = None
     created_at: datetime.datetime | None = None
     updated_at: datetime.datetime | None = None
+    has_contract: bool = False
 
     model_config = pydantic.ConfigDict(extra="ignore")
 
@@ -186,4 +217,3 @@ class BotBookingRaw(pydantic.BaseModel):
             created_at=self.created_at,
             updated_at=self.updated_at,
         )
-

@@ -5,28 +5,28 @@ import fastapi
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from src.api.dependencies.repository import get_repository
+from src.config.manager import settings
 from src.models.db.account import Account
 from src.models.enums.role import Role
 from src.repository.crud.account import AccountCRUDRepository
 from src.securities.authorizations.jwt import jwt_generator
-from src.config.manager import settings
-
 
 bearer_scheme = HTTPBearer()
 optional_bearer_scheme = HTTPBearer(auto_error=False)
 
+
 class CurrentUser:
     async def get_current_user(
-            self,
-            credentials: HTTPAuthorizationCredentials = fastapi.Depends(bearer_scheme),
-            account_repo: AccountCRUDRepository = fastapi.Depends(get_repository(repo_type=AccountCRUDRepository)),
+        self,
+        credentials: HTTPAuthorizationCredentials = fastapi.Depends(bearer_scheme),
+        account_repo: AccountCRUDRepository = fastapi.Depends(get_repository(repo_type=AccountCRUDRepository)),
     ) -> Account:
         return await self._get_user(credentials, account_repo)
 
     async def get_current_user_optional(
-            self,
-            credentials: HTTPAuthorizationCredentials | None = fastapi.Depends(optional_bearer_scheme),
-            account_repo: AccountCRUDRepository = fastapi.Depends(get_repository(repo_type=AccountCRUDRepository)),
+        self,
+        credentials: HTTPAuthorizationCredentials | None = fastapi.Depends(optional_bearer_scheme),
+        account_repo: AccountCRUDRepository = fastapi.Depends(get_repository(repo_type=AccountCRUDRepository)),
     ) -> Account | None:
         if credentials is None:
             return None
@@ -40,8 +40,9 @@ class CurrentUser:
             details = jwt_generator.retrieve_details_from_token(token=token, secret_key=settings.JWT_SECRET_KEY)
             email = details[1]
         except ValueError:
-            raise fastapi.HTTPException(status_code=fastapi.status.HTTP_401_UNAUTHORIZED,
-                                        detail="Invalid or expired token")
+            raise fastapi.HTTPException(
+                status_code=fastapi.status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token"
+            )
 
         account = await account_repo.read_account_by_email(email=email)
         if not account:
@@ -74,7 +75,7 @@ def require_roles_or_manager_api_key(*roles: Role) -> typing.Callable[..., typin
         credentials: HTTPAuthorizationCredentials | None = fastapi.Depends(optional_bearer_scheme),
         account_repo: AccountCRUDRepository = fastapi.Depends(get_repository(repo_type=AccountCRUDRepository)),
     ) -> Account | None:
-        expected_key = os.getenv("MANAGER_API_KEY") or settings.MANAGER_API_KEY or ""
+        expected_key = os.getenv("X_SERVICE_TOKEN") or os.getenv("MANAGER_API_KEY") or settings.MANAGER_API_KEY or ""
         if expected_key and x_api_key == expected_key:
             return None
 
@@ -85,6 +86,9 @@ def require_roles_or_manager_api_key(*roles: Role) -> typing.Callable[..., typin
             )
 
         token = credentials.credentials
+        if expected_key and token == expected_key:
+            return None
+
         try:
             details = jwt_generator.retrieve_details_from_token(token=token, secret_key=settings.JWT_SECRET_KEY)
             email = details[1]
