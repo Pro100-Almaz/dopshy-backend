@@ -61,7 +61,7 @@ async def create_authenticated_booking(
 )
 async def create_manager_booking(
     payload: BookingInCreateByManager,
-    current_user: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.MANAGER)),
+    current_user: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.ARENA_MANAGER)),
     booking_service: BookingService = fastapi.Depends(get_booking_service),
 ) -> BookingDetailOut:
     try:
@@ -90,7 +90,7 @@ async def create_bookings_batch(
     status_code=fastapi.status.HTTP_200_OK,
 )
 async def list_all_bookings(
-    _: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.MANAGER)),
+    _: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.ARENA_MANAGER)),
     booking_service: BookingService = fastapi.Depends(get_booking_service),
     page: int | None = fastapi.Query(default=None, ge=1),
     search: str | None = fastapi.Query(default=None),
@@ -107,6 +107,7 @@ async def list_all_bookings(
 async def list_bookings_in_range(
         start_date: str,
         end_date: str,
+        _: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.ARENA_MANAGER)),
         booking_service: BookingService = fastapi.Depends(get_booking_service),
         field: int | None = fastapi.Query(default=None, ge=1, le=3),
         page: int | None = fastapi.Query(default=None, ge=1),
@@ -137,7 +138,7 @@ async def list_my_bookings(
 )
 async def get_booking_detail(
     id: int,
-    _: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.MANAGER)),
+    _: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.ARENA_MANAGER)),
     booking_service: BookingService = fastapi.Depends(get_booking_service),
 ) -> dict:
     try:
@@ -154,7 +155,7 @@ async def get_booking_detail(
 async def update_booking_detail(
         id: int,
         payload: BookingInUpdate,
-        current_user: Account = fastapi.Depends(get_current_user),
+        current_user: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.ARENA_MANAGER)),
         booking_service: BookingService = fastapi.Depends(get_booking_service),
 ) -> dict:
     try:
@@ -184,4 +185,3 @@ async def update_booking_status(
         )
     except EntityDoesNotExist:
         raise await http_404_exc_booking_not_found_request(id=id)
-

@@ -18,13 +18,20 @@ async def seed_admin(session: AsyncSession) -> None:
     existing = result.scalar_one_or_none()
 
     if existing:
-        loguru.logger.info(f"Admin '{settings.ADMIN_EMAIL}' already exists — skipping seed")
+        if existing.role != Role.SUPER_ADMIN.value:
+            existing.role = Role.SUPER_ADMIN.value
+            existing.is_verified = True
+            existing.is_active = True
+            await session.commit()
+            loguru.logger.info(f"Admin '{settings.ADMIN_EMAIL}' promoted to super admin")
+            return
+        loguru.logger.info(f"Super admin '{settings.ADMIN_EMAIL}' already exists — skipping seed")
         return
 
     admin = Account(
         username=settings.ADMIN_USERNAME,
         email=settings.ADMIN_EMAIL,
-        role=Role.ADMIN.value,
+        role=Role.SUPER_ADMIN.value,
         is_verified=True,
         is_active=True,
         is_logged_in=False,
@@ -39,4 +46,4 @@ async def seed_admin(session: AsyncSession) -> None:
     session.add(admin)
     await session.commit()
 
-    loguru.logger.info(f"Admin account '{settings.ADMIN_EMAIL}' seeded successfully!")
+    loguru.logger.info(f"Super admin account '{settings.ADMIN_EMAIL}' seeded successfully!")

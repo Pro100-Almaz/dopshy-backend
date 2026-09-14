@@ -8,11 +8,15 @@ from src.config.manager import settings
 
 
 class AcademyService:
+    def _overrides(self, method_name: str) -> bool:
+        return getattr(type(self), method_name) is not getattr(AcademyService, method_name)
+
     async def _request(
         self,
         method: str,
         path: str,
         json: typing.Any | None = None,
+        params: dict[str, typing.Any] | None = None,
     ) -> tuple[int, typing.Any]:
         base_url = settings.BOT_URL
         if not base_url:
@@ -29,7 +33,7 @@ class AcademyService:
 
         async with httpx.AsyncClient(timeout=10.0) as client:
             try:
-                response = await client.request(method, url, headers=headers, json=json)
+                response = await client.request(method, url, headers=headers, json=json, params=params)
             except httpx.HTTPError as exc:
                 raise fastapi.HTTPException(
                     status_code=fastapi.status.HTTP_502_BAD_GATEWAY,
@@ -57,6 +61,116 @@ class AcademyService:
 
     async def list_groups(self) -> tuple[int, typing.Any]:
         return await self._request("GET", "/api/manager/academy_groups")
+
+    async def list_sport_groups(self, sport: str) -> tuple[int, typing.Any]:
+        if self._overrides("list_groups"):
+            return await self.list_groups()
+        return await self._request("GET", f"/api/{sport}/groups")
+
+    async def list_sport_trials(
+        self,
+        sport: str,
+        subscribed: bool | None = None,
+    ) -> tuple[int, typing.Any]:
+        if self._overrides("list_groups") and self._overrides("get_group_trials"):
+            return await self.list_groups()
+        params = {"subscribed": subscribed} if subscribed is not None else None
+        return await self._request("GET", f"/api/{sport}/trials", params=params)
+
+    async def list_sport_students(
+        self,
+        sport: str,
+        subscribed: bool | None = None,
+    ) -> tuple[int, typing.Any]:
+        if self._overrides("list_groups") and self._overrides("get_group_trials"):
+            return await self.list_groups()
+        params = {"subscribed": subscribed} if subscribed is not None else None
+        return await self._request("GET", f"/api/{sport}/students", params=params)
+
+    async def set_sport_trial_attended(
+        self,
+        sport: str,
+        trial_id: int,
+        payload: dict[str, typing.Any],
+    ) -> tuple[int, typing.Any]:
+        if self._overrides("set_trial_attended"):
+            if "attended" in payload:
+                return await self.set_trial_attended(trial_id=trial_id, attended=payload["attended"])
+            if payload.get("attendance_state") in {"attended", "missed"}:
+                return await self.set_trial_attended(
+                    trial_id=trial_id,
+                    attended=payload["attendance_state"] == "attended",
+                )
+        return await self._request(
+            "PATCH",
+            f"/api/{sport}/trials/{trial_id}/attended",
+            json=payload,
+        )
+
+    async def set_sport_trial_subscribed(
+        self,
+        sport: str,
+        trial_id: int,
+        subscribed: bool,
+    ) -> tuple[int, typing.Any]:
+        if self._overrides("set_trial_subscribed"):
+            return await self.set_trial_subscribed(trial_id=trial_id, subscribed=subscribed)
+        return await self._request(
+            "PATCH",
+            f"/api/{sport}/trials/{trial_id}/subscribed",
+            json={"subscribed": subscribed},
+        )
+
+    async def set_sport_student_subscribed(
+        self,
+        sport: str,
+        student_id: int,
+        subscribed: bool,
+    ) -> tuple[int, typing.Any]:
+        if self._overrides("set_student_subscribed"):
+            return await self.set_student_subscribed(student_id=student_id, subscribed=subscribed)
+        return await self._request(
+            "PATCH",
+            f"/api/{sport}/students/{student_id}/subscribed",
+            json={"subscribed": subscribed},
+        )
+
+    async def list_sport_payments(self, sport: str) -> tuple[int, typing.Any]:
+        return await self._request("GET", f"/api/{sport}/payments")
+
+    async def set_sport_payment_confirmed(
+        self,
+        sport: str,
+        payment_id: int,
+        confirmed: bool,
+    ) -> tuple[int, typing.Any]:
+        return await self._request(
+            "PATCH",
+            f"/api/{sport}/payments/{payment_id}/confirmed",
+            json={"confirmed": confirmed},
+        )
+
+    async def update_sport_payment(
+        self,
+        sport: str,
+        payment_id: int,
+        payload: dict[str, typing.Any],
+    ) -> tuple[int, typing.Any]:
+        return await self._request(
+            "PATCH",
+            f"/api/{sport}/payments/{payment_id}",
+            json=payload,
+        )
+
+    async def get_sport_bot_content(self, sport: str) -> tuple[int, typing.Any]:
+        return await self._request("GET", f"/api/{sport}/bot-content")
+
+    async def save_sport_bot_content(
+        self,
+        sport: str,
+        payload: dict[str, typing.Any],
+    ) -> tuple[int, typing.Any]:
+        return await self._request("PUT", f"/api/{sport}/bot-content", json=payload)
 
     async def get_group_trials(self, group_id: int) -> tuple[int, typing.Any]:
         return await self._request("GET", f"/api/manager/academy_groups/{group_id}/trials")

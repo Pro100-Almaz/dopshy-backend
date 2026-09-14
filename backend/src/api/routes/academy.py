@@ -33,7 +33,7 @@ class AcademyGroupUpdate(pydantic.BaseModel):
     status_code=fastapi.status.HTTP_200_OK,
 )
 async def list_academy_groups(
-    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN, Role.MANAGER)),
+    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN)),
     academy_service: AcademyService = fastapi.Depends(get_academy_service),
 ) -> fastapi.responses.JSONResponse:
     status_code, payload = await academy_service.list_groups()
@@ -47,7 +47,7 @@ async def list_academy_groups(
 )
 async def get_academy_group_trials(
     group_id: int,
-    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN, Role.MANAGER)),
+    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN)),
     academy_service: AcademyService = fastapi.Depends(get_academy_service),
 ) -> fastapi.responses.JSONResponse:
     status_code, payload = await academy_service.get_group_trials(group_id=group_id)
@@ -62,7 +62,7 @@ async def get_academy_group_trials(
 async def update_academy_group(
     group_id: int,
     payload: AcademyGroupUpdate,
-    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN, Role.MANAGER)),
+    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN)),
     academy_service: AcademyService = fastapi.Depends(get_academy_service),
 ) -> fastapi.responses.JSONResponse:
     update_payload = payload.model_dump(exclude_unset=True)
@@ -84,7 +84,7 @@ async def update_academy_group(
 async def set_academy_trial_attended(
     trial_id: int,
     payload: AttendanceUpdate,
-    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN, Role.MANAGER)),
+    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN)),
     academy_service: AcademyService = fastapi.Depends(get_academy_service),
 ) -> fastapi.responses.JSONResponse:
     status_code, response_payload = await academy_service.set_trial_attended(
@@ -102,7 +102,7 @@ async def set_academy_trial_attended(
 async def set_academy_trial_subscribed(
     trial_id: int,
     payload: SubscriptionUpdate,
-    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN, Role.MANAGER)),
+    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN)),
     academy_service: AcademyService = fastapi.Depends(get_academy_service),
 ) -> fastapi.responses.JSONResponse:
     status_code, response_payload = await academy_service.set_trial_subscribed(
@@ -120,7 +120,7 @@ async def set_academy_trial_subscribed(
 async def set_academy_user_subscribed(
     user_id: int,
     payload: SubscriptionUpdate,
-    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN, Role.MANAGER)),
+    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN)),
     academy_service: AcademyService = fastapi.Depends(get_academy_service),
 ) -> fastapi.responses.JSONResponse:
     status_code, response_payload = await academy_service.set_student_subscribed(
