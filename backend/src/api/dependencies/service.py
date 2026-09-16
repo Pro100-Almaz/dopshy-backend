@@ -6,6 +6,7 @@ from src.repository.crud.booking import BookingCRUDRepository
 from src.repository.crud.field import FieldCRUDRepository
 from src.services.academy import AcademyService
 from src.services.account import AccountService
+from src.services.agent_test import AgentTestService
 from src.services.booking import BookingService
 from src.services.bot_status import BotStatusService
 from src.services.contract import ContractService
@@ -43,6 +44,10 @@ def get_contract_service() -> ContractService:
 
 def get_academy_service() -> AcademyService:
     return AcademyService()
+
+
+def get_agent_test_service() -> AgentTestService:
+    return AgentTestService()
 
 
 def get_document_service() -> DocumentService:

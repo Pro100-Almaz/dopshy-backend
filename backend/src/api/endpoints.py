@@ -2,6 +2,7 @@ import fastapi
 
 from src.api.routes.academy import router as academy_router
 from src.api.routes.account import router as account_router
+from src.api.routes.agent_test import router as agent_test_router
 from src.api.routes.authentication import router as auth_router
 from src.api.routes.booking import router as booking_router
 from src.api.routes.bot_status import router as bot_status_router
@@ -25,3 +26,4 @@ router.include_router(router=academy_router)
 router.include_router(router=boxing_router)
 router.include_router(router=football_router)
 router.include_router(router=history_router)
+router.include_router(router=agent_test_router)
