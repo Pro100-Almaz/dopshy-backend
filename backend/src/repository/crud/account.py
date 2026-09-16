@@ -5,7 +5,8 @@ import sqlalchemy
 from sqlalchemy.sql import functions as sqlalchemy_functions
 
 from src.models.db.account import Account
-from src.models.schemas.account import AccountInCreate, AccountInLogin, AccountInUpdate
+from src.models.enums.role import Role
+from src.models.schemas.account import AccountAdminCreate, AccountInCreate, AccountInLogin, AccountInUpdate
 from src.repository.crud.base import BaseCRUDRepository
 from src.securities.hashing.password import pwd_generator
 from src.securities.verifications.credentials import credential_verifier
@@ -30,6 +31,30 @@ class AccountCRUDRepository(BaseCRUDRepository):
 
         return new_account
 
+    async def create_admin_account(self, account_create: AccountAdminCreate) -> Account:
+        new_account = Account(
+            username=account_create.username,
+            email=account_create.email,
+            role=account_create.role.value,
+            is_active=account_create.is_active,
+            is_verified=account_create.is_verified,
+            is_logged_in=False,
+        )
+
+        new_account.set_hash_salt(hash_salt=pwd_generator.generate_salt)
+        new_account.set_hashed_password(
+            hashed_password=pwd_generator.generate_hashed_password(
+                hash_salt=new_account.hash_salt,
+                new_password=account_create.password,
+            )
+        )
+
+        self.async_session.add(instance=new_account)
+        await self.async_session.commit()
+        await self.async_session.refresh(instance=new_account)
+
+        return new_account
+
     async def read_accounts(self) -> typing.Sequence[Account]:
         stmt = sqlalchemy.select(Account)
         query = await self.async_session.execute(statement=stmt)
@@ -38,11 +63,12 @@ class AccountCRUDRepository(BaseCRUDRepository):
     async def read_account_by_id(self, id: int) -> Account:
         stmt = sqlalchemy.select(Account).where(Account.id == id)
         query = await self.async_session.execute(statement=stmt)
+        account = query.scalar_one_or_none()
 
-        if not query:
+        if not account:
             raise EntityDoesNotExist(f"Account with id `{id}` does not exist!")
 
-        return query.scalar()  # type: ignore
+        return account  # type: ignore
 
     async def read_account_by_username(self, username: str) -> Account:
         stmt = sqlalchemy.select(Account).where(Account.username == username)
@@ -69,6 +95,9 @@ class AccountCRUDRepository(BaseCRUDRepository):
 
         if not db_account:
             raise EntityDoesNotExist(f"Wrong email! User asked {account_login.email}!")
+
+        if not db_account.is_active:
+            raise EntityDoesNotExist(f"Account with email `{account_login.email}` is inactive!")
 
         if not pwd_generator.is_password_authenticated(hash_salt=db_account.hash_salt, password=account_login.password, hashed_password=db_account.hashed_password):  # type: ignore
             raise PasswordDoesNotMatch("Password does not match!")
@@ -97,6 +126,16 @@ class AccountCRUDRepository(BaseCRUDRepository):
             update_account.set_hash_salt(hash_salt=pwd_generator.generate_salt)  # type: ignore
             update_account.set_hashed_password(hashed_password=pwd_generator.generate_hashed_password(hash_salt=update_account.hash_salt, new_password=new_account_data["password"]))  # type: ignore
 
+        if "role" in new_account_data and new_account_data["role"]:
+            role = new_account_data["role"]
+            update_stmt = update_stmt.values(role=role.value if isinstance(role, Role) else role)
+
+        if "is_active" in new_account_data and new_account_data["is_active"] is not None:
+            update_stmt = update_stmt.values(is_active=new_account_data["is_active"])
+
+        if "is_verified" in new_account_data and new_account_data["is_verified"] is not None:
+            update_stmt = update_stmt.values(is_verified=new_account_data["is_verified"])
+
         await self.async_session.execute(statement=update_stmt)
         await self.async_session.commit()
         await self.async_session.refresh(instance=update_account)
@@ -111,15 +150,21 @@ class AccountCRUDRepository(BaseCRUDRepository):
         if not delete_account:
             raise EntityDoesNotExist(f"Account with id `{id}` does not exist!")  # type: ignore
 
-        stmt = sqlalchemy.delete(table=Account).where(Account.id == delete_account.id)
+        stmt = (
+            sqlalchemy.update(table=Account)
+            .where(Account.id == delete_account.id)
+            .values(is_active=False, is_logged_in=False, updated_at=sqlalchemy_functions.now())
+        )
 
         await self.async_session.execute(statement=stmt)
         await self.async_session.commit()
 
-        return f"Account with id '{id}' is successfully deleted!"
+        return f"Account with id '{id}' is successfully deactivated!"
 
-    async def is_username_taken(self, username: str) -> bool:
+    async def is_username_taken(self, username: str, exclude_account_id: int | None = None) -> bool:
         username_stmt = sqlalchemy.select(Account.username).select_from(Account).where(Account.username == username)
+        if exclude_account_id is not None:
+            username_stmt = username_stmt.where(Account.id != exclude_account_id)
         username_query = await self.async_session.execute(username_stmt)
         db_username = username_query.scalar()
 
@@ -128,8 +173,10 @@ class AccountCRUDRepository(BaseCRUDRepository):
 
         return True
 
-    async def is_email_taken(self, email: str) -> bool:
+    async def is_email_taken(self, email: str, exclude_account_id: int | None = None) -> bool:
         email_stmt = sqlalchemy.select(Account.email).select_from(Account).where(Account.email == email)
+        if exclude_account_id is not None:
+            email_stmt = email_stmt.where(Account.id != exclude_account_id)
         email_query = await self.async_session.execute(email_stmt)
         db_email = email_query.scalar()
 

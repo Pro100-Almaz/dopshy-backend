@@ -2,6 +2,8 @@ import secrets
 
 from src.models.db.account import Account
 from src.models.schemas.account import (
+    AccountAdminCreate,
+    AccountAdminUpdate,
     AccountInCreate,
     AccountInLogin,
     AccountInResponse,
@@ -43,6 +45,12 @@ class AccountService:
         await self.send_verification_email(email=account_create.email)
         return self._build_response(account=new_account)
 
+    async def create_account(self, account_create: AccountAdminCreate) -> AccountInResponse:
+        await self.account_repo.is_username_taken(username=account_create.username)
+        await self.account_repo.is_email_taken(email=account_create.email)
+        new_account = await self.account_repo.create_admin_account(account_create=account_create)
+        return self._build_response(account=new_account)
+
     async def send_verification_email(self, email: str) -> dict[str, str]:
         code = str(secrets.randbelow(900000) + 100000)
         db_account = await self.account_repo.read_account_by_email(email=email)
@@ -67,8 +75,21 @@ class AccountService:
         return self._build_response(account=db_account)
 
     async def update_account(self, id: int, account_update: AccountInUpdate) -> AccountInResponse:
+        if account_update.username:
+            await self.account_repo.is_username_taken(
+                username=account_update.username,
+                exclude_account_id=id,
+            )
+        if account_update.email:
+            await self.account_repo.is_email_taken(
+                email=str(account_update.email),
+                exclude_account_id=id,
+            )
         updated_account = await self.account_repo.update_account_by_id(id=id, account_update=account_update)
         return self._build_response(account=updated_account)
+
+    async def update_staff_account(self, id: int, account_update: AccountAdminUpdate) -> AccountInResponse:
+        return await self.update_account(id=id, account_update=account_update)
 
     async def delete_account(self, id: int) -> dict[str, str]:
         result = await self.account_repo.delete_account_by_id(id=id)
