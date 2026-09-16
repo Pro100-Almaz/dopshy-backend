@@ -40,6 +40,10 @@ class SubscriptionUpdate(pydantic.BaseModel):
     subscribed: bool = pydantic.Field(default=True, strict=True)
 
 
+class StudentAssignment(pydantic.BaseModel):
+    group_id: int = pydantic.Field(strict=True)
+
+
 class PaymentConfirmedUpdate(pydantic.BaseModel):
     confirmed: bool = pydantic.Field(strict=True)
 
@@ -155,6 +159,77 @@ async def list_football_students(
     academy_service: AcademyService = fastapi.Depends(get_academy_service),
 ) -> dict[str, typing.Any]:
     return await list_students_by_type("football", subscribed, academy_service)
+
+
+@router.post(
+    path="/students",
+    name="football:create-student",
+    status_code=fastapi.status.HTTP_201_CREATED,
+)
+async def create_football_student(
+    payload: dict[str, typing.Any] = fastapi.Body(...),
+    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN, Role.FOOTBALL_MANAGER)),
+    academy_service: AcademyService = fastapi.Depends(get_academy_service),
+) -> fastapi.responses.JSONResponse:
+    status_code, response_payload = await academy_service.create_sport_student("football", payload=payload)
+    return fastapi.responses.JSONResponse(status_code=status_code, content=response_payload)
+
+
+@router.patch(
+    path="/students/{student_id}",
+    name="football:update-student",
+    status_code=fastapi.status.HTTP_200_OK,
+)
+async def update_football_student(
+    student_id: int,
+    payload: dict[str, typing.Any] = fastapi.Body(default_factory=dict),
+    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN, Role.FOOTBALL_MANAGER)),
+    academy_service: AcademyService = fastapi.Depends(get_academy_service),
+) -> fastapi.responses.JSONResponse:
+    if not payload:
+        raise fastapi.HTTPException(
+            status_code=fastapi.status.HTTP_400_BAD_REQUEST,
+            detail="At least one student field must be provided.",
+        )
+    status_code, response_payload = await academy_service.update_sport_student(
+        "football",
+        student_id=student_id,
+        payload=payload,
+    )
+    return fastapi.responses.JSONResponse(status_code=status_code, content=response_payload)
+
+
+@router.patch(
+    path="/students/{student_id}/assignment",
+    name="football:assign-student",
+    status_code=fastapi.status.HTTP_200_OK,
+)
+async def assign_football_student(
+    student_id: int,
+    payload: StudentAssignment,
+    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN, Role.FOOTBALL_MANAGER)),
+    academy_service: AcademyService = fastapi.Depends(get_academy_service),
+) -> fastapi.responses.JSONResponse:
+    status_code, response_payload = await academy_service.assign_sport_student(
+        "football",
+        student_id=student_id,
+        group_id=payload.group_id,
+    )
+    return fastapi.responses.JSONResponse(status_code=status_code, content=response_payload)
+
+
+@router.delete(
+    path="/students/{student_id}/assignment",
+    name="football:deassign-student",
+    status_code=fastapi.status.HTTP_200_OK,
+)
+async def deassign_football_student(
+    student_id: int,
+    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN, Role.FOOTBALL_MANAGER)),
+    academy_service: AcademyService = fastapi.Depends(get_academy_service),
+) -> fastapi.responses.JSONResponse:
+    status_code, response_payload = await academy_service.deassign_sport_student("football", student_id=student_id)
+    return fastapi.responses.JSONResponse(status_code=status_code, content=response_payload)
 
 
 @router.patch(

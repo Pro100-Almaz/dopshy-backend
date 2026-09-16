@@ -29,6 +29,10 @@ class AcademyGroupUpdate(pydantic.BaseModel):
     model_config = pydantic.ConfigDict(extra="forbid")
 
 
+class AcademyUserAssignment(pydantic.BaseModel):
+    group_id: int = pydantic.Field(strict=True)
+
+
 @router.get(
     path="/academy_groups",
     name="manager-academy:list-groups",
@@ -53,6 +57,34 @@ async def create_academy_group(
     academy_service: AcademyService = fastapi.Depends(get_academy_service),
 ) -> fastapi.responses.JSONResponse:
     status_code, response_payload = await academy_service.create_group(payload=payload)
+    return fastapi.responses.JSONResponse(status_code=status_code, content=response_payload)
+
+
+@router.get(
+    path="/academy_users",
+    name="manager-academy:list-users",
+    status_code=fastapi.status.HTTP_200_OK,
+)
+async def list_academy_users(
+    group_type: typing.Literal["football", "boxing"] | None = fastapi.Query(default=None),
+    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN)),
+    academy_service: AcademyService = fastapi.Depends(get_academy_service),
+) -> fastapi.responses.JSONResponse:
+    status_code, payload = await academy_service.list_academy_users(group_type=group_type)
+    return fastapi.responses.JSONResponse(status_code=status_code, content=payload)
+
+
+@router.post(
+    path="/academy_users",
+    name="manager-academy:create-user",
+    status_code=fastapi.status.HTTP_201_CREATED,
+)
+async def create_academy_user(
+    payload: dict[str, typing.Any] = fastapi.Body(...),
+    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN)),
+    academy_service: AcademyService = fastapi.Depends(get_academy_service),
+) -> fastapi.responses.JSONResponse:
+    status_code, response_payload = await academy_service.create_academy_user(payload=payload)
     return fastapi.responses.JSONResponse(status_code=status_code, content=response_payload)
 
 
@@ -103,6 +135,63 @@ async def delete_academy_group(
     academy_service: AcademyService = fastapi.Depends(get_academy_service),
 ) -> fastapi.responses.JSONResponse:
     status_code, response_payload = await academy_service.delete_group(group_id=group_id)
+    return fastapi.responses.JSONResponse(status_code=status_code, content=response_payload)
+
+
+@router.patch(
+    path="/academy_users/{user_id}",
+    name="manager-academy:update-user",
+    status_code=fastapi.status.HTTP_200_OK,
+)
+async def update_academy_user(
+    user_id: int,
+    payload: dict[str, typing.Any] = fastapi.Body(default_factory=dict),
+    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN)),
+    academy_service: AcademyService = fastapi.Depends(get_academy_service),
+) -> fastapi.responses.JSONResponse:
+    if not payload:
+        raise fastapi.HTTPException(
+            status_code=fastapi.status.HTTP_400_BAD_REQUEST,
+            detail="At least one user field must be provided.",
+        )
+
+    status_code, response_payload = await academy_service.update_academy_user(user_id=user_id, payload=payload)
+    return fastapi.responses.JSONResponse(status_code=status_code, content=response_payload)
+
+
+@router.patch(
+    path="/academy_users/{user_id}/assignment",
+    name="manager-academy:assign-user",
+    status_code=fastapi.status.HTTP_200_OK,
+)
+async def assign_academy_user(
+    user_id: int,
+    payload: AcademyUserAssignment,
+    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN)),
+    academy_service: AcademyService = fastapi.Depends(get_academy_service),
+) -> fastapi.responses.JSONResponse:
+    status_code, response_payload = await academy_service.assign_academy_user(
+        user_id=user_id,
+        group_id=payload.group_id,
+    )
+    return fastapi.responses.JSONResponse(status_code=status_code, content=response_payload)
+
+
+@router.delete(
+    path="/academy_users/{user_id}/assignment",
+    name="manager-academy:deassign-user",
+    status_code=fastapi.status.HTTP_200_OK,
+)
+async def deassign_academy_user(
+    user_id: int,
+    group_type: typing.Literal["football", "boxing"] | None = fastapi.Query(default=None),
+    _: Account | None = fastapi.Depends(require_roles_or_manager_api_key(Role.ADMIN)),
+    academy_service: AcademyService = fastapi.Depends(get_academy_service),
+) -> fastapi.responses.JSONResponse:
+    status_code, response_payload = await academy_service.deassign_academy_user(
+        user_id=user_id,
+        group_type=group_type,
+    )
     return fastapi.responses.JSONResponse(status_code=status_code, content=response_payload)
 
 
