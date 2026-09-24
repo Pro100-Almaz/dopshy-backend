@@ -1,5 +1,4 @@
 import datetime
-import os
 import typing
 
 import fastapi
@@ -15,14 +14,15 @@ from src.models.schemas.booking import (
     BookingInCreate,
     BookingInCreateAuthenticated,
     BookingInCreateByManager,
+    BookingInUpdate,
     BookingOut,
     BookingStatusUpdate,
     BotBookedSlotOut,
     BotBookingRaw,
-    BookingInUpdate,
 )
 from src.repository.crud.booking import BookingCRUDRepository
 from src.repository.crud.field import FieldCRUDRepository
+from src.utilities.bot_auth import get_bot_service_headers
 from src.utilities.exceptions.database import EntityDoesNotExist
 
 
@@ -124,7 +124,7 @@ class BookingService:
         if search is not None:
             params["search"] = search
 
-        headers = {"Accept": "application/json", "X-API-KEY": settings.MANAGER_API_KEY}
+        headers = get_bot_service_headers()
 
         async with httpx.AsyncClient(timeout=10.0) as client:
             try:
@@ -145,9 +145,7 @@ class BookingService:
         data = [BotBookingRaw.model_validate(b) for b in bookings]
         return data
 
-    async def get_all_booked_slots(
-        self, page: int | None = None, search: str | None = None
-    ) -> list[BotBookedSlotOut]:
+    async def get_all_booked_slots(self, page: int | None = None, search: str | None = None) -> list[BotBookedSlotOut]:
         bookings = await self.get_all_bookings(page=page, search=search)
         return [BotBookedSlotOut.model_validate(booking.model_dump()) for booking in bookings]
 
@@ -175,7 +173,7 @@ class BookingService:
         if search is not None:
             params["search"] = search
 
-        headers = {"Accept": "application/json", "X-API-KEY": settings.MANAGER_API_KEY}
+        headers = get_bot_service_headers()
 
         async with httpx.AsyncClient(timeout=10.0) as client:
             try:
@@ -216,6 +214,15 @@ class BookingService:
     async def create_bookings_batch(
         self, payload: BookingBatchInCreate, current_user: Account | None
     ) -> tuple[int, typing.Any]:
+        has_discount = payload.discount_id is not None or any(
+            "discount_id" in slot.model_fields_set and slot.discount_id is not None for slot in payload.slots
+        )
+        if has_discount and (current_user is None or current_user.role not in _BOOKING_STAFF_ROLE_VALUES):
+            raise fastapi.HTTPException(
+                status_code=fastapi.status.HTTP_403_FORBIDDEN,
+                detail="Only staff can assign discounts.",
+            )
+
         base_url = settings.BOT_URL
         if not base_url:
             raise fastapi.HTTPException(
@@ -227,20 +234,20 @@ class BookingService:
         if current_user is None:
             payload.source = f"{BookingSource.LANDING.value}:{payload.phone}"
         elif current_user.role in _BOOKING_STAFF_ROLE_VALUES:
-            payload.source = f"{BookingSource.MANAGER.value}:{current_user.username}"
+            payload.source = current_user.email
         else:
             payload.source = f"{BookingSource.ACCOUNT.value}:{current_user.email}"
 
-        body = payload.model_dump(mode="json", exclude_none=True)
+        # exclude_unset preserves an explicitly supplied per-slot null discount,
+        # which overrides a top-level discount according to the bot contract.
+        body = payload.model_dump(mode="json", exclude_unset=True)
+        body["source"] = payload.source
+        body.pop("updated_by", None)
         async with httpx.AsyncClient(timeout=10.0) as client:
             try:
                 response = await client.post(
                     url,
-                    headers={
-                        "Content-Type": "application/json",
-                        "Accept": "application/json",
-                        "X-API-KEY": settings.MANAGER_API_KEY,
-                    },
+                    headers=get_bot_service_headers(json=True),
                     json=body,
                 )
             except httpx.HTTPError as exc:
@@ -257,7 +264,7 @@ class BookingService:
                 detail="Bot service returned a non-JSON response.",
             ) from exc
 
-        return response.status_code, data
+        return response.status_code, _normalize_entity_ids(data)
 
     async def get_my_bookings(self, current_account: Account) -> list[BookingOut]:
         bookings = await self.booking_repo.read_bookings(account_id=current_account.id)
@@ -279,10 +286,7 @@ class BookingService:
                 detail="BOT_URL is not configured.",
             )
         url = base_url.rstrip("/") + f"/api/manager/bookings/{booking_id}"
-        headers = {
-            "Accept": "application/json",
-            "X-API-KEY": settings.MANAGER_API_KEY,
-        }
+        headers = get_bot_service_headers()
 
         async with httpx.AsyncClient(timeout=10.0) as client:
             try:
@@ -315,10 +319,12 @@ class BookingService:
             data = payload.get("data")
             if data is None:
                 raise EntityDoesNotExist(f"Booking with id `{booking_id}` does not exist!")
-            return data
-        return payload
+            return _normalize_entity_ids(data)
+        return _normalize_entity_ids(payload)
 
-    async def update_booking(self, booking_id: int, payload: BookingInUpdate, current_user: Account) -> dict[str, str]:
+    async def update_booking(
+        self, booking_id: int, payload: BookingInUpdate, current_user: Account
+    ) -> tuple[int, typing.Any]:
         if current_user is None or current_user.role not in _BOOKING_STAFF_ROLE_VALUES:
             raise fastapi.HTTPException(status_code=fastapi.status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
@@ -330,17 +336,15 @@ class BookingService:
             )
         url = base_url.rstrip("/") + f"/api/manager/bookings/{booking_id}"
 
-        payload.source = f"{BookingSource.MANAGER.value}:{current_user.username}"
-        body = payload.model_dump(mode="json", exclude_none=True)
+        payload.source = current_user.email
+        # Explicit null is meaningful for discount_id: it removes the current
+        # discount and returns one use. Preserve explicitly supplied nulls.
+        body = payload.model_dump(mode="json", exclude_unset=True)
         async with httpx.AsyncClient(timeout=10.0) as client:
             try:
                 response = await client.patch(
                     url,
-                    headers={
-                        "Content-Type": "application/json",
-                        "Accept": "application/json",
-                        "X-API-KEY": os.getenv("MANAGER_API_KEY") or "",
-                    },
+                    headers=get_bot_service_headers(json=True),
                     json=body,
                 )
             except httpx.HTTPError as exc:
@@ -348,12 +352,6 @@ class BookingService:
                     status_code=fastapi.status.HTTP_502_BAD_GATEWAY,
                     detail="Failed to reach the bot service.",
                 ) from exc
-
-        if response.status_code >= 400:
-            raise fastapi.HTTPException(
-                status_code=fastapi.status.HTTP_502_BAD_GATEWAY,
-                detail=f"Bot service returned {response.status_code}: {response.text[:200]}",
-            )
 
         try:
             data = response.json()
@@ -363,7 +361,7 @@ class BookingService:
                 detail="Bot service returned a non-JSON response.",
             ) from exc
 
-        return data
+        return response.status_code, _normalize_entity_ids(data)
 
     async def change_booking_status(
         self, booking_id: int, payload: BookingStatusUpdate, current_account: Account
@@ -405,5 +403,21 @@ class BookingService:
 _BOOKING_STAFF_ROLE_VALUES = {
     Role.SUPER_ADMIN.value,
     Role.ADMIN.value,
+    Role.MANAGER.value,
     Role.ARENA_MANAGER.value,
 }
+
+
+def _normalize_entity_ids(value: typing.Any) -> typing.Any:
+    if isinstance(value, list):
+        return [_normalize_entity_ids(item) for item in value]
+    if isinstance(value, dict):
+        return {
+            key: (
+                None
+                if key in {"booking_id", "customer_id", "discount_id"} and item == ""
+                else _normalize_entity_ids(item)
+            )
+            for key, item in value.items()
+        }
+    return value

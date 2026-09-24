@@ -78,7 +78,7 @@ async def list_bot_contacts(
     page_size: str | None = fastapi.Query(default=None),
     bot_type: BotType = fastapi.Query(default="arena"),
     _: Account = fastapi.Depends(
-        require_roles(Role.ADMIN, Role.ARENA_MANAGER, Role.FOOTBALL_MANAGER, Role.BOXING_MANAGER)
+        require_roles(Role.MANAGER, Role.ADMIN, Role.ARENA_MANAGER, Role.FOOTBALL_MANAGER, Role.BOXING_MANAGER)
     ),
     bot_status_service: BotStatusService = fastapi.Depends(get_bot_status_service),
 ) -> typing.Any:

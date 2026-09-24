@@ -4,6 +4,7 @@ import decimal
 import pydantic
 
 from src.models.enums.booking import BookingSource, BookingStatus, RepeatMode
+from src.utilities.phone import normalize_kz_phone
 
 
 class BookingStatusHistoryOut(pydantic.BaseModel):
@@ -63,6 +64,9 @@ class BookingInUpdate(pydantic.BaseModel):
 
     field_id: int | None = None
     customer_name: str | None = None
+    customer_id: int | str | None = None
+    phone: str | None = None
+    discount_id: int | str | None = None
     time_start: datetime.time | None = None
     time_end: datetime.time | None = None
     date: datetime.date | None = None
@@ -73,6 +77,11 @@ class BookingInUpdate(pydantic.BaseModel):
     paid_avans: decimal.Decimal | None = None
     source: str | None = None
 
+    @pydantic.field_validator("phone", mode="before")
+    @classmethod
+    def normalize_phone(cls, value: str | None) -> str | None:
+        return normalize_kz_phone(value) if value is not None else None
+
 
 class BatchSlotIn(pydantic.BaseModel):
 
@@ -82,6 +91,7 @@ class BatchSlotIn(pydantic.BaseModel):
     time_end: str = pydantic.Field(min_length=1)  # "11:00"; may be "24:00" = end of day
     repeat_mode: RepeatMode = RepeatMode.NONE  # "none" | "daily" | "weekly" | "monthly"
     repeat_until: str | None = None  # "yyyy-mm-dd"; required only when repeat_mode != "none"
+    discount_id: int | str | None = None
 
 
 class BookingBatchInCreate(pydantic.BaseModel):
@@ -89,13 +99,20 @@ class BookingBatchInCreate(pydantic.BaseModel):
 
     slots: list[BatchSlotIn] = pydantic.Field(min_length=1)
     customer: str | None = None
+    customer_id: int | str | None = None
     phone: str | None = None
     notes: str | None = None
     price_total: decimal.Decimal | None = None
     prepayment: decimal.Decimal = 0
+    discount_id: int | str | None = None
     reserved_until: int | None = None
     updated_by: str | None = None
     source: str | None = None
+
+    @pydantic.field_validator("phone", mode="before")
+    @classmethod
+    def normalize_phone(cls, value: str | None) -> str | None:
+        return normalize_kz_phone(value) if value is not None else None
 
 
 class BookingStatusUpdate(pydantic.BaseModel):
@@ -163,10 +180,14 @@ class BotBookingRaw(pydantic.BaseModel):
     id: int
     field: int | None = None
     customer_name: str | None = None
+    customer_id: int | None = None
     phone: str | None = None
     time_start: datetime.time | None = None
     time_end: datetime.time | None = None
     price_total: decimal.Decimal | None = None
+    discount_id: int | None = None
+    discount_amount: decimal.Decimal | None = None
+    price_before_discount: decimal.Decimal | None = None
     state: str
     source: str
     notes: str | None = None
@@ -184,7 +205,11 @@ class BotBookingRaw(pydantic.BaseModel):
 
     @pydantic.field_validator(
         "field",
+        "customer_id",
+        "discount_id",
         "price_total",
+        "discount_amount",
+        "price_before_discount",
         "paid_api",
         "paid_kaspi_qr",
         "paid_cash",

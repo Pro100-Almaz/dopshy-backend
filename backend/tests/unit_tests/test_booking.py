@@ -3,8 +3,7 @@ import datetime
 import pytest
 
 from src.api.routes.booking import list_booked_slots, list_booked_slots_in_range
-from src.models.schemas.booking import BotBookedSlotOut
-
+from src.models.schemas.booking import BookingBatchInCreate, BotBookedSlotOut, BotBookingRaw
 
 EXCLUDED_SLOT_FIELDS = {
     "customer_name",
@@ -14,6 +13,72 @@ EXCLUDED_SLOT_FIELDS = {
     "paid_cash",
     "paid_avans",
 }
+
+
+def test_batch_schema_preserves_explicit_null_slot_discount_override() -> None:
+    payload = BookingBatchInCreate.model_validate(
+        {
+            "discount_id": 10,
+            "slots": [
+                {
+                    "field": 1,
+                    "date": "2026-10-01",
+                    "time_start": "10:00",
+                    "time_end": "11:00",
+                    "discount_id": None,
+                }
+            ],
+        }
+    )
+
+    body = payload.model_dump(mode="json", exclude_unset=True)
+
+    assert body["discount_id"] == 10
+    assert "discount_id" in body["slots"][0]
+    assert body["slots"][0]["discount_id"] is None
+
+
+def test_booking_output_normalizes_empty_discount_fields_to_none() -> None:
+    booking = BotBookingRaw.model_validate(
+        {
+            "id": 1,
+            "field": 1,
+            "customer_id": "",
+            "discount_id": "",
+            "discount_amount": "",
+            "price_before_discount": "",
+            "price_total": "13500.00",
+            "state": "confirmed",
+            "source": "manager:admin",
+        }
+    )
+
+    assert booking.discount_id is None
+    assert booking.customer_id is None
+    assert booking.discount_amount is None
+    assert booking.price_before_discount is None
+
+
+def test_batch_booking_forwards_customer_id_and_normalizes_phone() -> None:
+    payload = BookingBatchInCreate.model_validate(
+        {
+            "customer_id": 7,
+            "phone": "8 707 111 22 33",
+            "slots": [
+                {
+                    "field": 1,
+                    "date": "2026-10-01",
+                    "time_start": "10:00",
+                    "time_end": "11:00",
+                }
+            ],
+        }
+    )
+
+    body = payload.model_dump(mode="json", exclude_unset=True)
+
+    assert body["customer_id"] == 7
+    assert body["phone"] == "77071112233"
 
 
 def test_booked_slot_output_excludes_customer_name_price_and_payment_fields() -> None:

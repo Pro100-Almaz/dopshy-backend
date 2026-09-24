@@ -51,6 +51,9 @@ class BackendBaseSettings(BaseSettings):
     # Base URL of the WhatsApp-bot service. The backend calls the bot's
     # `/api/manager/*` endpoints from `services/booking.py` and `services/field.py`.
     BOT_URL: str = decouple.config("BOT_URL", cast=str, default="")  # type: ignore
+    # Preferred credential name for calls to the bot manager API. Keep
+    # MANAGER_API_KEY below as a backwards-compatible deployment fallback.
+    BOT_SERVICE_TOKEN: str = decouple.config("BOT_SERVICE_TOKEN", cast=str, default="")  # type: ignore
     # Shared service token presented to the bot as the `X-API-Key` header.
     # Must match the bot's `X_SERVICE_TOKEN`.
     MANAGER_API_KEY: str = decouple.config("MANAGER_API_KEY", cast=str, default="")  # type: ignore
@@ -65,10 +68,12 @@ class BackendBaseSettings(BaseSettings):
         "http://0.0.0.0:3000",
         "http://127.0.0.1:3000",  # React docker port
         "http://127.0.0.1:3001",
+        "http://localhost:3001",
         "http://localhost:5173",  # Qwik default port
         "http://0.0.0.0:5173",
         "http://127.0.0.1:5173",  # Qwik docker port
         "http://127.0.0.1:5174",
+        "http://localhost:5174",
         "https://www.dopsy.kz",
         "https://dopsy.kz",
     ]
