@@ -10,6 +10,7 @@ from src.services.agent_test import AgentTestService
 from src.services.booking import BookingService
 from src.services.bot_status import BotStatusService
 from src.services.contract import ContractService
+from src.services.customer_discount import CustomerDiscountService
 from src.services.document import DocumentService
 from src.services.field import FieldService
 from src.services.history import HistoryService
@@ -40,6 +41,10 @@ def get_bot_status_service() -> BotStatusService:
 
 def get_contract_service() -> ContractService:
     return ContractService()
+
+
+def get_customer_discount_service() -> CustomerDiscountService:
+    return CustomerDiscountService()
 
 
 def get_academy_service() -> AcademyService:

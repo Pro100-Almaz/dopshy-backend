@@ -1,4 +1,3 @@
-import os
 import typing
 import urllib.parse
 
@@ -7,6 +6,7 @@ import httpx
 
 from src.config.manager import settings
 from src.models.schemas.bot_status import BotEnabledStatus, BotStatusBatchIn, BotType
+from src.utilities.bot_auth import get_bot_service_headers
 
 
 class BotStatusService:
@@ -31,11 +31,7 @@ class BotStatusService:
                 detail="BOT_URL is not configured.",
             )
         url = base_url.rstrip("/") + path
-        headers = {
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-            "X-API-KEY": os.getenv("MANAGER_API_KEY") or settings.MANAGER_API_KEY or "",
-        }
+        headers = get_bot_service_headers(json=True)
         clean_params = {key: value for key, value in (params or {}).items() if value is not None}
         async with httpx.AsyncClient(timeout=10.0) as client:
             try:

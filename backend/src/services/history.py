@@ -1,4 +1,3 @@
-import os
 import typing
 import urllib.parse
 
@@ -6,6 +5,7 @@ import fastapi
 import httpx
 
 from src.config.manager import settings
+from src.utilities.bot_auth import get_bot_service_headers
 
 
 class HistoryService:
@@ -31,10 +31,7 @@ class HistoryService:
                 detail="BOT_URL is not configured.",
             )
         url = base_url.rstrip("/") + path
-        headers = {
-            "Accept": "application/json",
-            "X-API-KEY": os.getenv("MANAGER_API_KEY") or settings.MANAGER_API_KEY or "",
-        }
+        headers = get_bot_service_headers()
         clean_params = {k: v for k, v in (params or {}).items() if v is not None}
         async with httpx.AsyncClient(timeout=10.0) as client:
             try:
@@ -46,9 +43,11 @@ class HistoryService:
                 ) from exc
 
         if response.status_code >= 400:
-            detail = "Bot service authentication failed (check MANAGER_API_KEY)." \
-                if response.status_code == 401 \
+            detail = (
+                "Bot service authentication failed (check MANAGER_API_KEY)."
+                if response.status_code == 401
                 else f"Bot service returned {response.status_code}: {response.text[:200]}"
+            )
             raise fastapi.HTTPException(
                 status_code=fastapi.status.HTTP_502_BAD_GATEWAY,
                 detail=detail,
@@ -57,12 +56,28 @@ class HistoryService:
 
     def _json(self, response: httpx.Response) -> typing.Any:
         try:
-            return response.json()
+            payload = response.json()
         except ValueError as exc:
             raise fastapi.HTTPException(
                 status_code=fastapi.status.HTTP_502_BAD_GATEWAY,
                 detail="Bot service returned a non-JSON response.",
             ) from exc
+        return self._normalize_entity_ids(payload)
+
+    def _normalize_entity_ids(self, value: typing.Any) -> typing.Any:
+        """The bot serializes unrelated nullable history IDs as empty strings."""
+        if isinstance(value, list):
+            return [self._normalize_entity_ids(item) for item in value]
+        if isinstance(value, dict):
+            return {
+                key: (
+                    None
+                    if key in {"booking_id", "customer_id", "discount_id"} and item == ""
+                    else self._normalize_entity_ids(item)
+                )
+                for key, item in value.items()
+            }
+        return value
 
     async def list_history(
         self,
@@ -87,9 +102,7 @@ class HistoryService:
         start = urllib.parse.quote(start_date, safe="")
         end = urllib.parse.quote(end_date, safe="")
         params = {"page": page, "page_size": page_size}
-        response = await self._request(
-            "GET", f"/api/manager/history/range/{start}/{end}", params=params
-        )
+        response = await self._request("GET", f"/api/manager/history/range/{start}/{end}", params=params)
         return self._json(response)
 
     async def list_history_by_source(
@@ -101,9 +114,7 @@ class HistoryService:
     ) -> typing.Any:
         quoted = urllib.parse.quote(source, safe="")
         params = {"page": page, "page_size": page_size}
-        response = await self._request(
-            "GET", f"/api/manager/history/source/{quoted}", params=params
-        )
+        response = await self._request("GET", f"/api/manager/history/source/{quoted}", params=params)
         return self._json(response)
 
     async def list_booking_history(
@@ -114,7 +125,5 @@ class HistoryService:
         page_size: int | None = None,
     ) -> typing.Any:
         params = {"page": page, "page_size": page_size}
-        response = await self._request(
-            "GET", f"/api/manager/bookings/{booking_id}/history", params=params
-        )
+        response = await self._request("GET", f"/api/manager/bookings/{booking_id}/history", params=params)
         return self._json(response)
