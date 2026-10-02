@@ -18,6 +18,24 @@ from src.services.bot_status import BotStatusService
 
 router = fastapi.APIRouter(prefix="/bot-status", tags=["bot-status"])
 
+# Each manager role may only switch its own bot; admins and super admins can switch every bot.
+BOT_SWITCH_ROLES: dict[str, BotType] = {
+    Role.ARENA_MANAGER.value: "arena",
+    Role.FOOTBALL_MANAGER.value: "football_academy",
+    Role.BOXING_MANAGER.value: "boxing_academy",
+}
+
+
+def _ensure_can_switch_bot(account: Account, bot_type: BotType) -> None:
+    if account.role in (Role.SUPER_ADMIN.value, Role.ADMIN.value):
+        return
+    if BOT_SWITCH_ROLES.get(account.role) != bot_type:
+        raise fastapi.HTTPException(
+            status_code=fastapi.status.HTTP_403_FORBIDDEN,
+            detail="Insufficient permissions",
+        )
+
+
 
 @router.get(
     path="/enabled_status",
@@ -27,9 +45,10 @@ router = fastapi.APIRouter(prefix="/bot-status", tags=["bot-status"])
 )
 async def get_bot_enabled_status(
     bot_type: BotType = fastapi.Query(default="arena"),
-    _: Account = fastapi.Depends(require_roles(Role.SUPER_ADMIN)),
+    account: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.ARENA_MANAGER, Role.FOOTBALL_MANAGER, Role.BOXING_MANAGER)),
     bot_status_service: BotStatusService = fastapi.Depends(get_bot_status_service),
 ) -> BotEnabledStatus:
+    _ensure_can_switch_bot(account=account, bot_type=bot_type)
     return await bot_status_service.get_bot_enabled_status(bot_type=bot_type)
 
 
@@ -41,9 +60,10 @@ async def get_bot_enabled_status(
 )
 async def patch_bot_enabled_status(
     payload: BotEnabledStatusIn,
-    account: Account = fastapi.Depends(require_roles(Role.SUPER_ADMIN)),
+    account: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.ARENA_MANAGER, Role.FOOTBALL_MANAGER, Role.BOXING_MANAGER)),
     bot_status_service: BotStatusService = fastapi.Depends(get_bot_status_service),
 ) -> BotEnabledStatus:
+    _ensure_can_switch_bot(account=account, bot_type=payload.bot_type)
     enabled_status = await bot_status_service.set_bot_enabled_status(
         enabled=payload.enabled,
         bot_type=payload.bot_type,
