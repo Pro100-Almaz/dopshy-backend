@@ -1,10 +1,12 @@
 import typing
 
+import fastapi
 import httpx
 import pytest
 
-from src.api.routes.bot_status import list_bot_contacts
+from src.api.routes.bot_status import _ensure_can_switch_bot, list_bot_contacts
 from src.config.manager import settings
+from src.models.db.account import Account
 from src.models.schemas.bot_status import BotEnabledStatusIn
 from src.services.bot_status import BotStatusService
 
@@ -217,3 +219,30 @@ def test_bot_enabled_status_payload_defaults_to_arena() -> None:
     payload = BotEnabledStatusIn(enabled=True)
 
     assert payload.bot_type == "arena"
+
+
+@pytest.mark.parametrize(
+    ("role", "bot_type"),
+    [
+        ("arena_manager", "arena"),
+        ("football_manager", "football_academy"),
+        ("boxing_manager", "boxing_academy"),
+        ("super_admin", "arena"),
+        ("super_admin", "boxing_academy"),
+        ("admin", "arena"),
+        ("admin", "football_academy"),
+    ],
+)
+def test_bot_switch_allows_own_bot(role: str, bot_type: typing.Any) -> None:
+    _ensure_can_switch_bot(account=Account(role=role), bot_type=bot_type)
+
+
+@pytest.mark.parametrize(
+    ("role", "bot_type"),
+    [("arena_manager", "football_academy"), ("boxing_manager", "arena")],
+)
+def test_bot_switch_rejects_other_bots(role: str, bot_type: typing.Any) -> None:
+    with pytest.raises(fastapi.HTTPException) as exc_info:
+        _ensure_can_switch_bot(account=Account(role=role), bot_type=bot_type)
+
+    assert exc_info.value.status_code == fastapi.status.HTTP_403_FORBIDDEN
