@@ -174,6 +174,15 @@ class BotBookedSlotOut(pydantic.BaseModel):
         return None if v == "" else v
 
 
+class PublicBookedSlotOut(pydantic.BaseModel):
+    """Busy interval for the public landing grid: times only, no customer or booking data."""
+
+    field: int | None = None
+    date: datetime.date | None = None
+    time_start: datetime.time | None = None
+    time_end: datetime.time | None = None
+
+
 class BotBookingRaw(pydantic.BaseModel):
     """Raw booking row as returned by the bot service."""
 
