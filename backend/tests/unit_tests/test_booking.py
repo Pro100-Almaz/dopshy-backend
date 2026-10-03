@@ -1,9 +1,11 @@
 import datetime
 
+import fastapi
 import pytest
 
-from src.api.routes.booking import list_booked_slots, list_booked_slots_in_range
+from src.api.routes.booking import list_booked_slots, list_booked_slots_in_range, list_public_availability
 from src.models.schemas.booking import BookingBatchInCreate, BotBookedSlotOut, BotBookingRaw
+from src.services.booking import BookingService
 
 EXCLUDED_SLOT_FIELDS = {
     "customer_name",
@@ -181,3 +183,52 @@ async def test_booked_slots_range_endpoint_uses_sanitized_service_method() -> No
 
     assert slots is not None
     assert slots[0].model_dump().keys().isdisjoint(EXCLUDED_SLOT_FIELDS)
+
+
+@pytest.mark.asyncio
+async def test_public_availability_keeps_blocking_states_and_drops_customer_data() -> None:
+    def slot(id: int, state: str) -> BotBookedSlotOut:
+        return BotBookedSlotOut(
+            id=id,
+            field=1,
+            phone="+77001112233",
+            time_start=datetime.time(hour=19),
+            time_end=datetime.time(hour=20),
+            state=state,
+            source="landing:+77001112233",
+            notes="secret",
+            date=datetime.date(year=2026, month=10, day=3),
+        )
+
+    class Service(BookingService):
+        def __init__(self) -> None:  # no repos needed: only the bot fetch is faked
+            pass
+
+        async def get_booked_slots_in_range(self, **kwargs):
+            assert kwargs == {"start_date": "2026-10-03", "end_date": "2026-10-09", "field": 1}
+            return [slot(1, "confirmed"), slot(2, "awaiting_payment"), slot(3, "cancelled"), slot(4, "draft")]
+
+    rows = await Service().get_public_availability(start_date="2026-10-03", end_date="2026-10-09", field=1)
+
+    assert len(rows) == 2  # cancelled/draft don't hold the slot
+    assert set(rows[0].model_dump()) == {"field", "date", "time_start", "time_end"}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("start", "end"),
+    [((2026, 10, 9), (2026, 10, 3)), ((2026, 10, 1), (2026, 11, 15))],
+)
+async def test_public_availability_rejects_reversed_or_oversized_range(start, end) -> None:
+    class Untouched:
+        async def get_public_availability(self, **kwargs):
+            raise AssertionError("must not reach the bot")
+
+    with pytest.raises(fastapi.HTTPException) as exc:
+        await list_public_availability(
+            start_date=datetime.date(*start),
+            end_date=datetime.date(*end),
+            booking_service=Untouched(),
+            field=None,
+        )
+    assert exc.value.status_code == 422

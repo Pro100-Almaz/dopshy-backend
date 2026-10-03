@@ -18,6 +18,7 @@ from src.models.schemas.booking import (
     BookingOut,
     BookingStatusUpdate,
     BotBookedSlotOut,
+    PublicBookedSlotOut,
     BotBookingRaw,
 )
 from src.repository.crud.booking import BookingCRUDRepository
@@ -211,6 +212,16 @@ class BookingService:
         )
         return [BotBookedSlotOut.model_validate(booking.model_dump()) for booking in bookings]
 
+    async def get_public_availability(
+        self, start_date: str, end_date: str, field: int | None = None
+    ) -> list[PublicBookedSlotOut]:
+        slots = await self.get_booked_slots_in_range(start_date=start_date, end_date=end_date, field=field)
+        return [
+            PublicBookedSlotOut(field=s.field, date=s.date, time_start=s.time_start, time_end=s.time_end)
+            for s in slots
+            if s.state in _SLOT_BLOCKING_STATES
+        ]
+
     async def create_bookings_batch(
         self, payload: BookingBatchInCreate, current_user: Account | None
     ) -> tuple[int, typing.Any]:
@@ -399,6 +410,9 @@ class BookingService:
         )
         return BookingDetailOut.model_validate(updated)
 
+
+# Same states the bot's EXCLUDE constraint uses to reject overlaps (SLOT_TAKEN).
+_SLOT_BLOCKING_STATES = {"awaiting_payment", "confirmed"}
 
 _BOOKING_STAFF_ROLE_VALUES = {
     Role.SUPER_ADMIN.value,

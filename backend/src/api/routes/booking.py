@@ -1,3 +1,5 @@
+import datetime
+
 import fastapi
 
 from src.api.dependencies.auth import get_current_user, require_roles, get_current_user_optional
@@ -14,6 +16,7 @@ from src.models.schemas.booking import (
     BookingStatusUpdate,
     BotBookedSlotOut,
     BotBookingRaw,
+    PublicBookedSlotOut,
     BookingInUpdate,
 )
 from src.services.booking import BookingService
@@ -156,6 +159,33 @@ async def list_booked_slots_in_range(
 ) -> list[BotBookedSlotOut] | None:
     return await booking_service.get_booked_slots_in_range(
         start_date=start_date, end_date=end_date, field=field, page=page, search=search
+    )
+
+
+# The landing's 4-week horizon fits easily; the cap keeps this open endpoint from dumping the whole calendar.
+_PUBLIC_AVAILABILITY_MAX_DAYS = 31
+
+
+@router.get(
+    path="/availability/{start_date}/{end_date}",
+    name="bookings:public-availability",
+    response_model=list[PublicBookedSlotOut],
+    status_code=fastapi.status.HTTP_200_OK,
+)
+async def list_public_availability(
+    start_date: datetime.date,
+    end_date: datetime.date,
+    booking_service: BookingService = fastapi.Depends(get_booking_service),
+    field: int | None = fastapi.Query(default=None, ge=1, le=3),
+) -> list[PublicBookedSlotOut]:
+    """Busy intervals for the public booking grid. No auth: returns times only, no customer data."""
+    if end_date < start_date or (end_date - start_date).days > _PUBLIC_AVAILABILITY_MAX_DAYS:
+        raise fastapi.HTTPException(
+            status_code=fastapi.status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Date range must be ascending and at most {_PUBLIC_AVAILABILITY_MAX_DAYS} days.",
+        )
+    return await booking_service.get_public_availability(
+        start_date=start_date.isoformat(), end_date=end_date.isoformat(), field=field
     )
 
 
