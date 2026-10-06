@@ -6,14 +6,22 @@ import pytest
 
 from src.api.dependencies.auth import require_roles_or_manager_api_key
 from src.api.routes.contract import (
+    check_contract_slots,
     create_contract,
     create_contract_bookings_batch,
     delete_contract,
     delete_contract_bookings_batch,
     get_contract,
+    get_contract_payments,
     list_contracts,
+    mark_contract_installment_paid,
+    preview_contract_payment_plan,
+    replace_contract_payment_plan,
+    send_contract_installment,
+    stop_contract_payment_plan,
     update_contract,
     update_contract_bookings_batch,
+    update_contract_installment,
 )
 from src.config.manager import settings
 from src.services.contract import ContractService
@@ -237,3 +245,141 @@ async def test_list_contracts_rejects_invalid_page() -> None:
     response = await list_contracts(contract_service=FakeContractService(), page=0)
 
     assert response.status_code == fastapi.status.HTTP_400_BAD_REQUEST
+
+
+@pytest.mark.asyncio
+async def test_contract_service_forwards_payment_plan_paths(monkeypatch: pytest.MonkeyPatch) -> None:
+    requests = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append((request.method, str(request.url), request.read().decode()))
+        return httpx.Response(200, json={"ok": True})
+
+    async_client = httpx.AsyncClient
+    monkeypatch.delenv("X_SERVICE_TOKEN", raising=False)
+    monkeypatch.delenv("MANAGER_API_KEY", raising=False)
+    monkeypatch.setattr(settings, "BOT_URL", "https://bot.example")
+    monkeypatch.setattr(settings, "MANAGER_API_KEY", "secret")
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **_: async_client(transport=httpx.MockTransport(handler)))
+
+    service = ContractService()
+    await service.check_contract_slots(payload={"slots": []})
+    await service.preview_payment_plan(payload={"price": 200000, "payment_plan": {"mode": "dynamic"}})
+    await service.get_contract_payments(contract_id=12)
+    await service.replace_payment_plan(contract_id=12, payload={"payment_plan": {"mode": "dynamic"}})
+    await service.stop_payment_plan(contract_id=12)
+    await service.update_installment(contract_id=12, installment_id=41, payload={"amount": None})
+    await service.mark_installment_paid(contract_id=12, installment_id=41, payload={"amount": 150000})
+    await service.send_installment(contract_id=12, installment_id=41)
+
+    assert requests == [
+        ("POST", "https://bot.example/api/manager/contracts/check-slots", '{"slots":[]}'),
+        (
+            "POST",
+            "https://bot.example/api/manager/contracts/payment-plan/preview",
+            '{"price":200000,"payment_plan":{"mode":"dynamic"}}',
+        ),
+        ("GET", "https://bot.example/api/manager/contracts/12/payments", ""),
+        ("PUT", "https://bot.example/api/manager/contracts/12/payment-plan", '{"payment_plan":{"mode":"dynamic"}}'),
+        ("DELETE", "https://bot.example/api/manager/contracts/12/payment-plan", ""),
+        ("PATCH", "https://bot.example/api/manager/contracts/12/installments/41", '{"amount":null}'),
+        ("POST", "https://bot.example/api/manager/contracts/12/installments/41/mark-paid", '{"amount":150000}'),
+        ("POST", "https://bot.example/api/manager/contracts/12/installments/41/send", ""),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_contract_service_preserves_payment_provider_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    error = {
+        "ok": False,
+        "code": "PAYMENT_PROVIDER_ERROR",
+        "data": None,
+        "message": "Не удалось проверить номер в Kaspi. Попробуйте ещё раз.",
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(502, json=error)
+
+    async_client = httpx.AsyncClient
+    monkeypatch.setattr(settings, "BOT_URL", "https://bot.example")
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **_: async_client(transport=httpx.MockTransport(handler)))
+
+    status_code, payload = await ContractService().create_contract(
+        {"customer_name": "Ivan", "payment_plan": {"mode": "static", "frequency": "monthly"}}
+    )
+
+    assert status_code == 502
+    assert payload == error
+
+
+class FakePaymentPlanService(ContractService):
+    async def check_contract_slots(self, payload: dict[str, typing.Any]) -> tuple[int, typing.Any]:
+        return 200, {"ok": True, "data": {"free": True, "occurrences": 0, "conflicts": []}}
+
+    async def preview_payment_plan(self, payload: dict[str, typing.Any]) -> tuple[int, typing.Any]:
+        return 400, {"ok": False, "code": "INVALID_PLAN", "data": None, "message": "bad plan"}
+
+    async def get_contract_payments(self, contract_id: int) -> tuple[int, typing.Any]:
+        return 200, {"ok": True, "data": {"contract_id": contract_id}}
+
+    async def replace_payment_plan(
+        self,
+        contract_id: int,
+        payload: dict[str, typing.Any],
+    ) -> tuple[int, typing.Any]:
+        return 200, {"ok": True, "data": {"contract_id": contract_id, "payload": payload}}
+
+    async def stop_payment_plan(self, contract_id: int) -> tuple[int, typing.Any]:
+        return 200, {"ok": True, "data": {"contract_id": contract_id}}
+
+    async def update_installment(
+        self,
+        contract_id: int,
+        installment_id: int,
+        payload: dict[str, typing.Any],
+    ) -> tuple[int, typing.Any]:
+        return 400, {"ok": False, "code": "INVALID_STATE", "data": None, "message": "already sent"}
+
+    async def mark_installment_paid(
+        self,
+        contract_id: int,
+        installment_id: int,
+        payload: dict[str, typing.Any],
+    ) -> tuple[int, typing.Any]:
+        return 200, {"ok": True, "data": {"payload": payload}}
+
+    async def send_installment(self, contract_id: int, installment_id: int) -> tuple[int, typing.Any]:
+        return 404, {"ok": False, "code": "NOT_FOUND", "data": None, "message": "not found"}
+
+
+@pytest.mark.asyncio
+async def test_payment_plan_routes_proxy_to_service() -> None:
+    service = FakePaymentPlanService()
+
+    checked = await check_contract_slots(payload={"slots": []}, contract_service=service)
+    previewed = await preview_contract_payment_plan(payload={"payment_plan": {}}, contract_service=service)
+    payments = await get_contract_payments(contract_id=12, contract_service=service)
+    replaced = await replace_contract_payment_plan(
+        contract_id=12,
+        payload={"payment_plan": {"mode": "dynamic"}},
+        contract_service=service,
+    )
+    stopped = await stop_contract_payment_plan(contract_id=12, contract_service=service)
+    edited = await update_contract_installment(
+        contract_id=12,
+        installment_id=41,
+        payload={"amount": 100000},
+        contract_service=service,
+    )
+    marked = await mark_contract_installment_paid(contract_id=12, installment_id=41, contract_service=service)
+    sent = await send_contract_installment(contract_id=12, installment_id=41, contract_service=service)
+
+    assert checked.status_code == 200
+    assert previewed.status_code == 400
+    assert payments.status_code == 200
+    assert replaced.status_code == 200
+    assert stopped.status_code == 200
+    assert edited.status_code == 400
+    assert marked.status_code == 200
+    assert marked.body == b'{"ok":true,"data":{"payload":{}}}'
+    assert sent.status_code == 404

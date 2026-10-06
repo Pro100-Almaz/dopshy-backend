@@ -14,6 +14,7 @@ class ContractService:
         path: str,
         json: typing.Any | None = None,
         params: dict[str, typing.Any] | None = None,
+        timeout: float = 10.0,
     ) -> tuple[int, typing.Any]:
         base_url = settings.BOT_URL
         if not base_url:
@@ -34,7 +35,7 @@ class ContractService:
         if json is not None:
             headers["Content-Type"] = "application/json"
 
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=timeout) as client:
             try:
                 response = await client.request(
                     method,
@@ -80,7 +81,8 @@ class ContractService:
         return await self._request("GET", f"/api/manager/contracts/{contract_id}")
 
     async def create_contract(self, payload: dict[str, typing.Any]) -> tuple[int, typing.Any]:
-        return await self._request("POST", "/api/manager/contracts", json=payload)
+        # Creation may run the Kaspi check on the payer and expand up to 1000 bookings.
+        return await self._request("POST", "/api/manager/contracts", json=payload, timeout=30.0)
 
     async def update_contract(self, contract_id: int, payload: dict[str, typing.Any]) -> tuple[int, typing.Any]:
         return await self._request("PATCH", f"/api/manager/contracts/{contract_id}", json=payload)
@@ -108,3 +110,53 @@ class ContractService:
         payload: dict[str, typing.Any],
     ) -> tuple[int, typing.Any]:
         return await self._request("DELETE", f"/api/manager/contracts/{contract_id}/bookings/batch", json=payload)
+
+    async def check_contract_slots(self, payload: dict[str, typing.Any]) -> tuple[int, typing.Any]:
+        return await self._request("POST", "/api/manager/contracts/check-slots", json=payload)
+
+    async def preview_payment_plan(self, payload: dict[str, typing.Any]) -> tuple[int, typing.Any]:
+        return await self._request("POST", "/api/manager/contracts/payment-plan/preview", json=payload)
+
+    async def get_contract_payments(self, contract_id: int) -> tuple[int, typing.Any]:
+        return await self._request("GET", f"/api/manager/contracts/{contract_id}/payments")
+
+    async def replace_payment_plan(
+        self,
+        contract_id: int,
+        payload: dict[str, typing.Any],
+    ) -> tuple[int, typing.Any]:
+        return await self._request("PUT", f"/api/manager/contracts/{contract_id}/payment-plan", json=payload)
+
+    async def stop_payment_plan(self, contract_id: int) -> tuple[int, typing.Any]:
+        return await self._request("DELETE", f"/api/manager/contracts/{contract_id}/payment-plan")
+
+    async def update_installment(
+        self,
+        contract_id: int,
+        installment_id: int,
+        payload: dict[str, typing.Any],
+    ) -> tuple[int, typing.Any]:
+        return await self._request(
+            "PATCH",
+            f"/api/manager/contracts/{contract_id}/installments/{installment_id}",
+            json=payload,
+        )
+
+    async def mark_installment_paid(
+        self,
+        contract_id: int,
+        installment_id: int,
+        payload: dict[str, typing.Any],
+    ) -> tuple[int, typing.Any]:
+        return await self._request(
+            "POST",
+            f"/api/manager/contracts/{contract_id}/installments/{installment_id}/mark-paid",
+            json=payload,
+        )
+
+    async def send_installment(self, contract_id: int, installment_id: int) -> tuple[int, typing.Any]:
+        return await self._request(
+            "POST",
+            f"/api/manager/contracts/{contract_id}/installments/{installment_id}/send",
+            timeout=30.0,
+        )
