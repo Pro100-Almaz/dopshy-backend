@@ -25,6 +25,9 @@ BOT_SWITCH_ROLES: dict[str, BotType] = {
     Role.BOXING_MANAGER.value: "boxing_academy",
 }
 
+# Roles that see the contacts list and may hand a single dialog over to a human (pause/resume).
+BOT_CONTACT_ROLES = (Role.MANAGER, Role.ADMIN, Role.ARENA_MANAGER, Role.FOOTBALL_MANAGER, Role.BOXING_MANAGER)
+
 
 def _ensure_can_switch_bot(account: Account, bot_type: BotType) -> None:
     if account.role in (Role.SUPER_ADMIN.value, Role.ADMIN.value):
@@ -82,7 +85,7 @@ async def patch_bot_enabled_status(
 )
 async def batch_bot_status(
     payload: BotStatusBatchIn,
-    _: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.ARENA_MANAGER)),
+    _: Account = fastapi.Depends(require_roles(*BOT_CONTACT_ROLES)),
     bot_status_service: BotStatusService = fastapi.Depends(get_bot_status_service),
 ) -> typing.Any:
     return await bot_status_service.batch_status(payload=payload)
@@ -97,9 +100,7 @@ async def list_bot_contacts(
     page: str | None = fastapi.Query(default=None),
     page_size: str | None = fastapi.Query(default=None),
     bot_type: BotType = fastapi.Query(default="arena"),
-    _: Account = fastapi.Depends(
-        require_roles(Role.MANAGER, Role.ADMIN, Role.ARENA_MANAGER, Role.FOOTBALL_MANAGER, Role.BOXING_MANAGER)
-    ),
+    _: Account = fastapi.Depends(require_roles(*BOT_CONTACT_ROLES)),
     bot_status_service: BotStatusService = fastapi.Depends(get_bot_status_service),
 ) -> typing.Any:
     return await bot_status_service.list_contacts(page=page, page_size=page_size, bot_type=bot_type)
@@ -112,7 +113,7 @@ async def list_bot_contacts(
 )
 async def get_bot_status(
     phone: str,
-    _: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.ARENA_MANAGER)),
+    _: Account = fastapi.Depends(require_roles(*BOT_CONTACT_ROLES)),
     bot_status_service: BotStatusService = fastapi.Depends(get_bot_status_service),
 ) -> typing.Any:
     return await bot_status_service.get_status(phone=phone)
@@ -126,7 +127,7 @@ async def get_bot_status(
 )
 async def pause_bot_status(
     phone: str,
-    _: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.ARENA_MANAGER)),
+    _: Account = fastapi.Depends(require_roles(*BOT_CONTACT_ROLES)),
     bot_status_service: BotStatusService = fastapi.Depends(get_bot_status_service),
 ) -> BotStatusToggleOut:
     return await bot_status_service.pause(phone=phone)
@@ -140,7 +141,7 @@ async def pause_bot_status(
 )
 async def resume_bot_status(
     phone: str,
-    _: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.ARENA_MANAGER)),
+    _: Account = fastapi.Depends(require_roles(*BOT_CONTACT_ROLES)),
     bot_status_service: BotStatusService = fastapi.Depends(get_bot_status_service),
 ) -> BotStatusToggleOut:
     return await bot_status_service.resume(phone=phone)
