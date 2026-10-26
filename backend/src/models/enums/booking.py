@@ -17,6 +17,7 @@ class BookingSource(str, enum.Enum):
     ACCOUNT = "account"
     MANAGER = "manager"
     CHATBOT = "chatbot"
+    BOT_LINK = "bot_link"
 
 
 class RepeatMode(str, enum.Enum):

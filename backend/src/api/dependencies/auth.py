@@ -1,3 +1,4 @@
+import hmac
 import os
 import typing
 
@@ -121,6 +122,17 @@ def require_roles_or_manager_api_key(*roles: Role) -> typing.Callable[..., typin
         return account  # type: ignore
 
     return _check_role_or_key
+
+
+async def require_bot_prefill_key(x_api_key: str | None = fastapi.Header(default=None, alias="X-API-Key")) -> None:
+    """Bot -> backend auth for the prefill API (dedicated key, falling back to the manager key)."""
+    expected_key = settings.BOT_PREFILL_API_KEY or settings.MANAGER_API_KEY
+    if not expected_key:
+        raise fastapi.HTTPException(
+            status_code=fastapi.status.HTTP_503_SERVICE_UNAVAILABLE, detail="Prefill API is not configured."
+        )
+    if not x_api_key or not hmac.compare_digest(x_api_key.encode(), expected_key.encode()):
+        raise fastapi.HTTPException(status_code=fastapi.status.HTTP_401_UNAUTHORIZED, detail="Invalid API key.")
 
 
 def _role_values_with_super_admin(roles: tuple[Role, ...]) -> set[str]:

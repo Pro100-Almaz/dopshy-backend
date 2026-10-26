@@ -13,12 +13,14 @@ from src.api.routes.document import router as document_router
 from src.api.routes.field import router as field_router
 from src.api.routes.football import router as football_router
 from src.api.routes.history import router as history_router
+from src.api.routes.prefill import router as prefill_router
 
 router = fastapi.APIRouter()
 
 router.include_router(router=account_router)
 router.include_router(router=auth_router)
 router.include_router(router=field_router)
+router.include_router(router=prefill_router)  # before booking_router: /bookings/prefill/* must not hit /bookings/{id}
 router.include_router(router=booking_router)
 router.include_router(router=bot_status_router)
 router.include_router(router=document_router)

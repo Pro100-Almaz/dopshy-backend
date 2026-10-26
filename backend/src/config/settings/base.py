@@ -57,6 +57,15 @@ class BackendBaseSettings(BaseSettings):
     # Shared service token presented to the bot as the `X-API-Key` header.
     # Must match the bot's `X_SERVICE_TOKEN`.
     MANAGER_API_KEY: str = decouple.config("MANAGER_API_KEY", cast=str, default="")  # type: ignore
+
+    # Bot -> backend booking prefill. The bot presents BOT_PREFILL_API_KEY (falls back to
+    # MANAGER_API_KEY when unset) to POST /api/bot/prefill and gets back a landing link.
+    BOT_PREFILL_API_KEY: str = decouple.config("BOT_PREFILL_API_KEY", cast=str, default="")  # type: ignore
+    PREFILL_TTL_HOURS: int = decouple.config("PREFILL_TTL_HOURS", cast=int, default=24)  # type: ignore
+    # Base of the returned link, e.g. https://dopsy.kz/arena
+    PLATFORM_BOOKING_URL: str = decouple.config("PLATFORM_BOOKING_URL", cast=str, default="")  # type: ignore
+    # settings.TIMEZONE is UTC, so the "not in the past" checks use the venue zone explicitly.
+    PREFILL_VENUE_TZ: str = decouple.config("PREFILL_VENUE_TZ", cast=str, default="Asia/Almaty")  # type: ignore
     # ApiPay.kz (Kaspi Pay) needs no credentials here: this backend only relays the
     # payment webhook to the bot at `/webhooks/apipay`. APIPAY_API_KEY and
     # APIPAY_WEBHOOK_SECRET belong to the bot service, which creates the invoices
