@@ -3,6 +3,7 @@ import typing
 
 import fastapi
 import httpx
+import loguru
 
 from src.config.manager import settings
 from src.models.db.account import Account
@@ -26,11 +27,20 @@ from src.repository.crud.field import FieldCRUDRepository
 from src.utilities.bot_auth import get_bot_service_headers
 from src.utilities.exceptions.database import EntityDoesNotExist
 
+if typing.TYPE_CHECKING:
+    from src.services.booking_prefill import BookingPrefillService
+
 
 class BookingService:
-    def __init__(self, booking_repo: BookingCRUDRepository, field_repo: FieldCRUDRepository) -> None:
+    def __init__(
+        self,
+        booking_repo: BookingCRUDRepository,
+        field_repo: FieldCRUDRepository,
+        prefill_service: "BookingPrefillService | None" = None,
+    ) -> None:
         self.booking_repo = booking_repo
         self.field_repo = field_repo
+        self.prefill_service = prefill_service
 
     async def _compute_total_price(
         self, field_id: int, start_datetime: datetime.datetime, duration_hours: int
@@ -242,8 +252,25 @@ class BookingService:
             )
         url = base_url.rstrip("/") + "/api/manager/bookings/batch"
 
+        # A bad prefill never blocks a booking: anything wrong with it degrades to a normal booking.
+        prefill = None
+        if payload.prefill_token and self.prefill_service is not None:
+            try:
+                prefill = await self.prefill_service.get_valid(payload.prefill_token)
+            except Exception:
+                loguru.logger.exception("Booking prefill lookup failed; continuing without it.")
+            if prefill is None:
+                loguru.logger.info("Booking batch carried an invalid, expired or used prefill token; ignoring it.")
+            else:
+                # Typed values win; the prefill only fills what the user left empty.
+                if not payload.phone and prefill.phone:
+                    payload.phone = prefill.phone
+                if not payload.customer and prefill.customer_name:
+                    payload.customer = prefill.customer_name
+
         if current_user is None:
-            payload.source = f"{BookingSource.LANDING.value}:{payload.phone}"
+            source_kind = BookingSource.BOT_LINK if prefill is not None else BookingSource.LANDING
+            payload.source = f"{source_kind.value}:{payload.phone}"
         elif current_user.role in _BOOKING_STAFF_ROLE_VALUES:
             payload.source = current_user.email
         else:
@@ -254,6 +281,7 @@ class BookingService:
         body = payload.model_dump(mode="json", exclude_unset=True)
         body["source"] = payload.source
         body.pop("updated_by", None)
+        body.pop("prefill_token", None)
         async with httpx.AsyncClient(timeout=10.0) as client:
             try:
                 response = await client.post(
@@ -275,7 +303,15 @@ class BookingService:
                 detail="Bot service returned a non-JSON response.",
             ) from exc
 
-        return response.status_code, _normalize_entity_ids(data)
+        data = _normalize_entity_ids(data)
+        if prefill is not None and response.is_success and isinstance(data, dict) and data.get("ok") is True:
+            # The booking already exists in the bot, so a failure here must not fail the request.
+            try:
+                await self.prefill_service.mark_consumed(prefill.id, _extract_booking_ids(data))  # type: ignore[union-attr]
+            except Exception:
+                loguru.logger.exception(f"Could not mark booking prefill {prefill.id} consumed.")
+
+        return response.status_code, data
 
     async def get_my_bookings(self, current_account: Account) -> list[BookingOut]:
         bookings = await self.booking_repo.read_bookings(account_id=current_account.id)
@@ -420,6 +456,21 @@ _BOOKING_STAFF_ROLE_VALUES = {
     Role.MANAGER.value,
     Role.ARENA_MANAGER.value,
 }
+
+
+def _extract_booking_ids(data: dict[str, typing.Any]) -> list[int] | None:
+    """Best-effort ids of the bookings the bot created, whatever shape its batch envelope uses."""
+    inner = data.get("data")
+    if isinstance(inner, dict):
+        inner = inner.get("bookings") or inner.get("ids") or inner.get("booking_ids") or inner.get("results")
+    if not isinstance(inner, list):
+        return None
+    ids = []
+    for item in inner:
+        raw = item.get("id", item.get("booking_id")) if isinstance(item, dict) else item
+        if isinstance(raw, int) and not isinstance(raw, bool):
+            ids.append(raw)
+    return ids or None
 
 
 def _normalize_entity_ids(value: typing.Any) -> typing.Any:

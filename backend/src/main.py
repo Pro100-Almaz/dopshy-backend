@@ -1,3 +1,4 @@
+import asyncio
 import contextlib
 import pathlib
 import typing
@@ -10,15 +11,18 @@ from fastapi.staticfiles import StaticFiles
 from src.api.endpoints import router as api_endpoint_router
 from src.api.routes.webhooks import router as webhooks_router
 from src.config.manager import settings
+from src.services.booking_prefill import run_prefill_cleanup_loop
 from src.repository.events import dispose_db_connection, initialize_db_connection
 
 
 @contextlib.asynccontextmanager
 async def lifespan(app: fastapi.FastAPI) -> typing.AsyncIterator[None]:
     await initialize_db_connection(backend_app=app)
+    cleanup_task = asyncio.create_task(run_prefill_cleanup_loop())
     try:
         yield
     finally:
+        cleanup_task.cancel()
         await dispose_db_connection(backend_app=app)
 
 

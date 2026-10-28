@@ -108,6 +108,8 @@ class BookingBatchInCreate(pydantic.BaseModel):
     reserved_until: int | None = None
     updated_by: str | None = None
     source: str | None = None
+    # Opaque token from a bot-issued link; resolved server-side and never forwarded to the bot.
+    prefill_token: str | None = None
 
     @pydantic.field_validator("phone", mode="before")
     @classmethod

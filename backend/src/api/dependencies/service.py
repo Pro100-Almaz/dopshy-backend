@@ -3,11 +3,13 @@ import fastapi
 from src.api.dependencies.repository import get_repository
 from src.repository.crud.account import AccountCRUDRepository
 from src.repository.crud.booking import BookingCRUDRepository
+from src.repository.crud.booking_prefill import BookingPrefillCRUDRepository
 from src.repository.crud.field import FieldCRUDRepository
 from src.services.academy import AcademyService
 from src.services.account import AccountService
 from src.services.agent_test import AgentTestService
 from src.services.booking import BookingService
+from src.services.booking_prefill import BookingPrefillService
 from src.services.bot_status import BotStatusService
 from src.services.contract import ContractService
 from src.services.customer_discount import CustomerDiscountService
@@ -31,8 +33,21 @@ def get_field_service(
 def get_booking_service(
     booking_repo: BookingCRUDRepository = fastapi.Depends(get_repository(repo_type=BookingCRUDRepository)),
     field_repo: FieldCRUDRepository = fastapi.Depends(get_repository(repo_type=FieldCRUDRepository)),
+    prefill_repo: BookingPrefillCRUDRepository = fastapi.Depends(
+        get_repository(repo_type=BookingPrefillCRUDRepository)
+    ),
 ) -> BookingService:
-    return BookingService(booking_repo=booking_repo, field_repo=field_repo)
+    return BookingService(
+        booking_repo=booking_repo, field_repo=field_repo, prefill_service=BookingPrefillService(prefill_repo)
+    )
+
+
+def get_booking_prefill_service(
+    prefill_repo: BookingPrefillCRUDRepository = fastapi.Depends(
+        get_repository(repo_type=BookingPrefillCRUDRepository)
+    ),
+) -> BookingPrefillService:
+    return BookingPrefillService(prefill_repo=prefill_repo)
 
 
 def get_bot_status_service() -> BotStatusService:
