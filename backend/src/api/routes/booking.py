@@ -2,22 +2,23 @@ import datetime
 
 import fastapi
 
-from src.api.dependencies.auth import get_current_user, require_roles, get_current_user_optional
+from src.api.dependencies.auth import get_current_user, get_current_user_optional, require_roles
 from src.api.dependencies.service import get_booking_service
 from src.models.db.account import Account
 from src.models.enums.role import Role
 from src.models.schemas.booking import (
     BookingBatchInCreate,
     BookingDetailOut,
+    BookingHoldPaymentIn,
     BookingInCreate,
     BookingInCreateAuthenticated,
     BookingInCreateByManager,
+    BookingInUpdate,
     BookingOut,
     BookingStatusUpdate,
     BotBookedSlotOut,
     BotBookingRaw,
     PublicBookedSlotOut,
-    BookingInUpdate,
 )
 from src.services.booking import BookingService
 from src.utilities.exceptions.database import EntityDoesNotExist
@@ -89,6 +90,22 @@ async def create_bookings_batch(
     current_user: Account | None = fastapi.Depends(get_current_user_optional),
 ) -> fastapi.Response:
     status_code, data = await booking_service.create_bookings_batch(payload=payload, current_user=current_user)
+    return fastapi.responses.JSONResponse(status_code=status_code, content=data)
+
+
+@router.post(
+    path="/{id}/request-payment",
+    name="bookings:request-payment-for-hold",
+)
+async def request_payment_for_hold(
+    id: int,
+    payload: BookingHoldPaymentIn,
+    current_user: Account = fastapi.Depends(require_roles(Role.ADMIN)),
+    booking_service: BookingService = fastapi.Depends(get_booking_service),
+) -> fastapi.Response:
+    status_code, data = await booking_service.request_payment_for_hold(
+        booking_id=id, payload=payload, current_user=current_user
+    )
     return fastapi.responses.JSONResponse(status_code=status_code, content=data)
 
 

@@ -336,6 +336,8 @@ class FakeBot:
 def _batch(**overrides) -> BookingBatchInCreate:
     data = {
         "slots": [{"field": 1, "date": _future_day().isoformat(), "time_start": "19:00", "time_end": "20:00"}],
+        # Website bookings must carry the offer consent.
+        "consent": {"accepted": True, "offer_version": "2026-10", "text_version": "v1"},
     }
     data.update(overrides)
     return BookingBatchInCreate.model_validate(data)
@@ -359,6 +361,8 @@ async def test_batch_with_valid_token_injects_phone_sets_source_and_consumes(ser
     assert bot.sent["phone"] == "77011234567"
     assert bot.sent["customer"] == "Almaz"
     assert bot.sent["source"] == "bot_link:77011234567"
+    assert bot.sent["channel"] == "site"
+    assert bot.sent["lang"] == "ru"  # taken from the prefill
     assert "prefill_token" not in bot.sent
     row = next(iter(repo.rows.values()))
     assert row.consumed_at is not None
@@ -445,3 +449,32 @@ async def test_token_does_not_unlock_discounts(service, monkeypatch) -> None:
             _batch(prefill_token=created.token, discount_id=3), current_user=None
         )
     assert exc.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_prefill_without_consent_is_rejected_and_token_left_unconsumed(service, repo, monkeypatch) -> None:
+    bot = FakeBot()
+    monkeypatch.setattr(httpx, "AsyncClient", bot)
+    created = await _create(service)
+
+    status, data = await _booking_service(service).create_bookings_batch(
+        _batch(prefill_token=created.token, consent=None), current_user=None
+    )
+
+    assert status == 400 and data["code"] == "CONSENT_REQUIRED"
+    assert bot.sent is None
+    assert next(iter(repo.rows.values())).consumed_at is None
+
+
+@pytest.mark.asyncio
+async def test_batch_consumes_prefill_with_top_level_booking_ids(service, repo, monkeypatch) -> None:
+    monkeypatch.setattr(
+        httpx,
+        "AsyncClient",
+        FakeBot(status=200, body={"ok": True, "created_count": 2, "booking_ids": [51, 52], "data": {}}),
+    )
+    created = await _create(service)
+
+    await _booking_service(service).create_bookings_batch(_batch(prefill_token=created.token), current_user=None)
+
+    assert next(iter(repo.rows.values())).bot_booking_ids == [51, 52]
