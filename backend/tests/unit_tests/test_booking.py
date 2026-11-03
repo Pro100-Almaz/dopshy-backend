@@ -14,6 +14,7 @@ from src.models.schemas.booking import (
     BookingBatchInCreate,
     BookingHoldPaymentIn,
     BookingInUpdate,
+    BookingRefundIn,
     BookingStatusUpdate,
     BotBookedSlotOut,
     BotBookingRaw,
@@ -263,6 +264,7 @@ class FakeBot:
         self.status = status
         self.body = body if body is not None else {"ok": True, "booking_ids": [1], "data": {}}
         self.sent: dict | None = None
+        self.url: str | None = None
 
     def __call__(self, *args, **kwargs):
         outer = self
@@ -276,6 +278,11 @@ class FakeBot:
 
             async def post(self, url, headers=None, json=None):
                 outer.sent = json
+                outer.url = url
+                return httpx.Response(outer.status, json=outer.body)
+
+            async def get(self, url, headers=None):
+                outer.url = url
                 return httpx.Response(outer.status, json=outer.body)
 
         return Client()
@@ -489,3 +496,64 @@ def test_booking_row_exposes_consent_and_payment_fields() -> None:
         }
     )
     assert blank.consent_at is None and blank.payment_method is None and blank.kaspi_phone is None
+
+
+# Refunds (proxied to the bot, which enforces the amount cap)
+
+ARENA_MANAGER = SimpleNamespace(role=Role.ARENA_MANAGER.value, email="arena@example.com")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("user", [ADMIN, SUPER_ADMIN, ARENA_MANAGER])
+async def test_refund_is_forwarded_with_actor(bot, user) -> None:
+    bot.body = {"ok": True, "data": {"refundable": 0, "refunds": []}}
+    status, data = await _service().create_booking_refund(
+        7, BookingRefundIn(amount=5000, comment="отмена", request_key="press-0001"), current_user=user
+    )
+    assert status == 200 and data["ok"]
+    assert bot.url == "http://bot:5000/api/manager/bookings/7/refunds"
+    assert bot.sent == {"amount": 5000, "comment": "отмена", "request_key": "press-0001", "source": user.email}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("user", [None, CLIENT, STAFF])
+async def test_refund_is_restricted_roles(bot, user) -> None:
+    with pytest.raises(fastapi.HTTPException) as exc:
+        await _service().create_booking_refund(7, BookingRefundIn(amount=1), current_user=user)
+    assert exc.value.status_code == 403
+    assert bot.sent is None
+
+
+@pytest.mark.asyncio
+async def test_refund_cap_error_from_bot_passes_through(bot) -> None:
+    bot.status = 409
+    bot.body = {"ok": False, "code": "AMOUNT_TOO_LARGE", "message": "Можно вернуть не больше 10000₸."}
+    status, data = await _service().create_booking_refund(7, BookingRefundIn(amount=99999), current_user=ADMIN)
+    assert status == 409 and data["code"] == "AMOUNT_TOO_LARGE"
+
+
+@pytest.mark.asyncio
+async def test_refund_history_is_read_from_bot(bot) -> None:
+    bot.body = {"ok": True, "data": {"within_window": False, "refunds": [{"id": 1, "booking_id": 7}]}}
+    status, data = await _service().get_booking_refunds(7, current_user=ARENA_MANAGER)
+    assert status == 200 and data["data"]["within_window"] is False
+    assert bot.url == "http://bot:5000/api/manager/bookings/7/refunds"
+
+
+@pytest.mark.parametrize("amount", [0, -1, 10.5])
+def test_refund_schema_rejects_bad_amount(amount) -> None:
+    with pytest.raises(pydantic.ValidationError):
+        BookingRefundIn(amount=amount)
+
+
+def test_booking_row_exposes_refund_fields() -> None:
+    row = BotBookingRaw.model_validate(
+        {"id": 1, "state": "confirmed", "source": "x", "first_paid_at": "", "refunded_total": 2500}
+    )
+    assert row.first_paid_at is None and row.refunded_total == 2500
+
+
+@pytest.mark.parametrize("key", ["short", "has spaces in it", "x" * 101])
+def test_refund_schema_rejects_bad_request_key(key) -> None:
+    with pytest.raises(pydantic.ValidationError):
+        BookingRefundIn(amount=1, request_key=key)

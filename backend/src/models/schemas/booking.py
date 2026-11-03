@@ -167,6 +167,21 @@ class BookingHoldPaymentIn(pydantic.BaseModel):
         return normalize_kz_phone(value)
 
 
+class BookingRefundIn(pydantic.BaseModel):
+    """Refund part of a booking's Kaspi (ApiPay) payment, in whole tenge.
+
+    The bot caps `amount` at what can be refunded right now and makes the call
+    idempotent on `request_key` — one key per press of the refund button, so a
+    double click or a resent request returns the same refund, not a second one.
+    """
+
+    amount: int = pydantic.Field(gt=0, le=99_999_999)
+    comment: str | None = pydantic.Field(default=None, max_length=500)
+    request_key: str | None = pydantic.Field(
+        default=None, min_length=8, max_length=100, pattern=r"^[A-Za-z0-9_-]+$"
+    )
+
+
 class BookingOut(pydantic.BaseModel):
     id: int
     field_id: int
@@ -263,6 +278,10 @@ class BotBookingRaw(pydantic.BaseModel):
     consent_text_version: str | None = None
     offer_version: str | None = None
     payment_method: str | None = None  # "kaspi_invoice" | "link" | "hold_without_payment"
+    # Refunds: when money first landed on the booking (starts the 48h refund
+    # window) and how much has been refunded so far.
+    first_paid_at: str | None = None  # ISO datetime, passed through as-is
+    refunded_total: decimal.Decimal | None = None
 
     model_config = pydantic.ConfigDict(extra="ignore")
 
@@ -286,6 +305,8 @@ class BotBookingRaw(pydantic.BaseModel):
         "consent_text_version",
         "offer_version",
         "payment_method",
+        "first_paid_at",
+        "refunded_total",
         mode="before",
     )
     @classmethod

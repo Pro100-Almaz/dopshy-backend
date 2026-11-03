@@ -18,6 +18,7 @@ from src.models.schemas.booking import (
     BookingInCreateByManager,
     BookingInUpdate,
     BookingOut,
+    BookingRefundIn,
     BookingStatusUpdate,
     BotBookedSlotOut,
     BotBookingRaw,
@@ -480,6 +481,59 @@ class BookingService:
 
         return response.status_code, _normalize_entity_ids(data)
 
+    async def get_booking_refunds(self, booking_id: int, current_user: Account) -> tuple[int, typing.Any]:
+        """Refund history, refundable amount and the 48h-window flag, from the bot."""
+        self._require_refund_role(current_user)
+        return await self._bot_request("GET", f"/api/manager/bookings/{booking_id}/refunds")
+
+    async def create_booking_refund(
+        self, booking_id: int, payload: BookingRefundIn, current_user: Account
+    ) -> tuple[int, typing.Any]:
+        """Refund through ApiPay. The bot enforces the cap under a row lock and
+        dedupes on `request_key`; its status code and body pass through as-is."""
+        self._require_refund_role(current_user)
+        body = payload.model_dump(mode="json", exclude_none=True)
+        body["source"] = current_user.email
+        return await self._bot_request("POST", f"/api/manager/bookings/{booking_id}/refunds", body)
+
+    @staticmethod
+    def _require_refund_role(current_user: Account | None) -> None:
+        if current_user is None or current_user.role not in _REFUND_ROLE_VALUES:
+            raise fastapi.HTTPException(
+                status_code=fastapi.status.HTTP_403_FORBIDDEN,
+                detail="Only admins, super-admins and arena managers can refund bookings.",
+            )
+
+    async def _bot_request(
+        self, method: str, path: str, body: dict[str, typing.Any] | None = None
+    ) -> tuple[int, typing.Any]:
+        base_url = settings.BOT_URL
+        if not base_url:
+            raise fastapi.HTTPException(
+                status_code=fastapi.status.HTTP_502_BAD_GATEWAY,
+                detail="BOT_URL is not configured.",
+            )
+        url = base_url.rstrip("/") + path
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                if method == "GET":
+                    response = await client.get(url, headers=get_bot_service_headers())
+                else:
+                    response = await client.post(url, headers=get_bot_service_headers(json=True), json=body)
+        except httpx.HTTPError as exc:
+            raise fastapi.HTTPException(
+                status_code=fastapi.status.HTTP_502_BAD_GATEWAY,
+                detail="Failed to reach the bot service.",
+            ) from exc
+        try:
+            data = response.json()
+        except ValueError as exc:
+            raise fastapi.HTTPException(
+                status_code=fastapi.status.HTTP_502_BAD_GATEWAY,
+                detail="Bot service returned a non-JSON response.",
+            ) from exc
+        return response.status_code, _normalize_entity_ids(data)
+
     async def change_booking_status(
         self, booking_id: int, payload: BookingStatusUpdate, current_account: Account
     ) -> BookingDetailOut:
@@ -537,6 +591,12 @@ _BOOKING_STAFF_ROLE_VALUES = {
     Role.SUPER_ADMIN.value,
     Role.ADMIN.value,
     Role.MANAGER.value,
+    Role.ARENA_MANAGER.value,
+}
+
+_REFUND_ROLE_VALUES = {
+    Role.SUPER_ADMIN.value,
+    Role.ADMIN.value,
     Role.ARENA_MANAGER.value,
 }
 

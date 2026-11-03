@@ -15,6 +15,7 @@ from src.models.schemas.booking import (
     BookingInCreateByManager,
     BookingInUpdate,
     BookingOut,
+    BookingRefundIn,
     BookingStatusUpdate,
     BotBookedSlotOut,
     BotBookingRaw,
@@ -253,6 +254,36 @@ async def update_booking_detail(
         return fastapi.responses.JSONResponse(status_code=status_code, content=data)
     except EntityDoesNotExist:
         raise await http_404_exc_booking_not_found_request(id=id)
+
+
+@router.get(
+    path="/{id}/refunds",
+    name="bookings:list-refunds",
+    status_code=fastapi.status.HTTP_200_OK,
+)
+async def list_booking_refunds(
+    id: int,
+    current_user: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.ARENA_MANAGER)),
+    booking_service: BookingService = fastapi.Depends(get_booking_service),
+) -> fastapi.Response:
+    status_code, data = await booking_service.get_booking_refunds(booking_id=id, current_user=current_user)
+    return fastapi.responses.JSONResponse(status_code=status_code, content=data)
+
+
+@router.post(
+    path="/{id}/refunds",
+    name="bookings:create-refund",
+)
+async def create_booking_refund(
+    id: int,
+    payload: BookingRefundIn,
+    current_user: Account = fastapi.Depends(require_roles(Role.ADMIN, Role.ARENA_MANAGER)),
+    booking_service: BookingService = fastapi.Depends(get_booking_service),
+) -> fastapi.Response:
+    status_code, data = await booking_service.create_booking_refund(
+        booking_id=id, payload=payload, current_user=current_user
+    )
+    return fastapi.responses.JSONResponse(status_code=status_code, content=data)
 
 
 @router.patch(
