@@ -5,7 +5,7 @@ import fastapi
 import httpx
 
 from src.config.manager import settings
-from src.models.schemas.bot_status import BotEnabledStatus, BotStatusBatchIn, BotType
+from src.models.schemas.bot_status import BotEnabledStatus, BotStatusBatchIn, BotType, ContactFilter
 from src.utilities.bot_auth import get_bot_service_headers
 
 
@@ -103,10 +103,20 @@ class BotStatusService:
         page: str | None = None,
         page_size: str | None = None,
         bot_type: BotType = "arena",
+        search: str | None = None,
+        contact_filter: ContactFilter = "all",
     ) -> typing.Any:
         """Unified customer list from the bot: WhatsApp texters + bookers, each
-        with live pause status. Returned as-is from the bot service."""
-        params = {"page": page, "page_size": page_size, "bot_type": bot_type}
+        with live pause status. Returned as-is from the bot service.
+
+        Search and filter are applied by the bot across the whole list, before pagination."""
+        params = {
+            "page": page,
+            "page_size": page_size,
+            "bot_type": bot_type,
+            "search": (search or "").strip() or None,
+            "filter": None if contact_filter == "all" else contact_filter,
+        }
         response = await self._request("GET", "/api/manager/contacts", params=params)
         return self._json(response)
 

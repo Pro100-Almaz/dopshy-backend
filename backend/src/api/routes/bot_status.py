@@ -13,6 +13,7 @@ from src.models.schemas.bot_status import (
     BotStatusBatchIn,
     BotStatusToggleOut,
     BotType,
+    ContactFilter,
 )
 from src.services.bot_status import BotStatusService
 
@@ -100,10 +101,14 @@ async def list_bot_contacts(
     page: str | None = fastapi.Query(default=None),
     page_size: str | None = fastapi.Query(default=None),
     bot_type: BotType = fastapi.Query(default="arena"),
+    search: str | None = fastapi.Query(default=None, max_length=100),
+    filter: ContactFilter = fastapi.Query(default="all"),
     _: Account = fastapi.Depends(require_roles(*BOT_CONTACT_ROLES)),
     bot_status_service: BotStatusService = fastapi.Depends(get_bot_status_service),
 ) -> typing.Any:
-    return await bot_status_service.list_contacts(page=page, page_size=page_size, bot_type=bot_type)
+    return await bot_status_service.list_contacts(
+        page=page, page_size=page_size, bot_type=bot_type, search=search, contact_filter=filter
+    )
 
 
 @router.get(

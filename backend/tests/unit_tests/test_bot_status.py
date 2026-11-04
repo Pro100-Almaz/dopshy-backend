@@ -199,8 +199,16 @@ class FakeBotStatusService(BotStatusService):
         page: str | None = None,
         page_size: str | None = None,
         bot_type: str = "arena",
+        search: str | None = None,
+        contact_filter: str = "all",
     ) -> typing.Any:
-        return {"page": page, "page_size": page_size, "bot_type": bot_type}
+        return {
+            "page": page,
+            "page_size": page_size,
+            "bot_type": bot_type,
+            "search": search,
+            "contact_filter": contact_filter,
+        }
 
 
 @pytest.mark.asyncio
@@ -209,10 +217,52 @@ async def test_bot_status_contacts_route_passes_pagination_params_to_service() -
         page="2",
         page_size="20",
         bot_type="boxing_academy",
+        search="Айгерим",
+        filter="paused",
         bot_status_service=FakeBotStatusService(),
     )
 
-    assert payload == {"page": "2", "page_size": "20", "bot_type": "boxing_academy"}
+    assert payload == {
+        "page": "2",
+        "page_size": "20",
+        "bot_type": "boxing_academy",
+        "search": "Айгерим",
+        "contact_filter": "paused",
+    }
+
+
+@pytest.mark.asyncio
+async def test_bot_status_service_forwards_contacts_search_and_filter(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["params"] = dict(request.url.params)
+        return httpx.Response(200, json={"ok": True, "data": []})
+
+    async_client = httpx.AsyncClient
+    monkeypatch.delenv("MANAGER_API_KEY", raising=False)
+    monkeypatch.setattr(settings, "BOT_URL", "https://bot.example")
+    monkeypatch.setattr(settings, "MANAGER_API_KEY", "secret")
+    monkeypatch.setattr(
+        httpx,
+        "AsyncClient",
+        lambda **_: async_client(transport=httpx.MockTransport(handler)),
+    )
+
+    await BotStatusService().list_contacts(page="1", page_size="20", search="  8 701 ", contact_filter="booking")
+    assert captured["params"] == {
+        "page": "1",
+        "page_size": "20",
+        "bot_type": "arena",
+        "search": "8 701",
+        "filter": "booking",
+    }
+
+    # Blank search and the default filter are not sent at all.
+    await BotStatusService().list_contacts(page="1", page_size="20", search="   ")
+    assert captured["params"] == {"page": "1", "page_size": "20", "bot_type": "arena"}
 
 
 def test_bot_enabled_status_payload_defaults_to_arena() -> None:

@@ -3,6 +3,7 @@ import typing
 
 
 BotType = typing.Literal["arena", "football_academy", "boxing_academy"]
+ContactFilter = typing.Literal["all", "texted", "booking", "paused"]
 
 
 class BotStatusBatchIn(pydantic.BaseModel):
