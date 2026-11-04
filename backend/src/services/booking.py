@@ -12,6 +12,7 @@ from src.models.enums.role import Role
 from src.models.schemas.booking import (
     BookingBatchInCreate,
     BookingDetailOut,
+    BookingHoldPaymentIn,
     BookingInCreate,
     BookingInCreateAuthenticated,
     BookingInCreateByManager,
@@ -19,8 +20,8 @@ from src.models.schemas.booking import (
     BookingOut,
     BookingStatusUpdate,
     BotBookedSlotOut,
-    PublicBookedSlotOut,
     BotBookingRaw,
+    PublicBookedSlotOut,
 )
 from src.repository.crud.booking import BookingCRUDRepository
 from src.repository.crud.field import FieldCRUDRepository
@@ -235,14 +236,27 @@ class BookingService:
     async def create_bookings_batch(
         self, payload: BookingBatchInCreate, current_user: Account | None
     ) -> tuple[int, typing.Any]:
+        is_staff = current_user is not None and current_user.role in _BOOKING_STAFF_ROLE_VALUES
+        if payload.hold_without_payment and (
+            current_user is None or current_user.role not in _HOLD_WITHOUT_PAYMENT_ROLE_VALUES
+        ):
+            raise fastapi.HTTPException(
+                status_code=fastapi.status.HTTP_403_FORBIDDEN,
+                detail="Only admins and super-admins can create 24-hour no-payment holds.",
+            )
         has_discount = payload.discount_id is not None or any(
             "discount_id" in slot.model_fields_set and slot.discount_id is not None for slot in payload.slots
         )
-        if has_discount and (current_user is None or current_user.role not in _BOOKING_STAFF_ROLE_VALUES):
+        if has_discount and not is_staff:
             raise fastapi.HTTPException(
                 status_code=fastapi.status.HTTP_403_FORBIDDEN,
                 detail="Only staff can assign discounts.",
             )
+
+        # The website (anonymous, bot_link prefill, ACCOUNT) must tick the offer checkbox.
+        # Rejected here with the bot's own error shape so the frontend handles one format.
+        if not is_staff and (payload.consent is None or payload.consent.accepted is not True):
+            return fastapi.status.HTTP_400_BAD_REQUEST, dict(_CONSENT_REQUIRED_ERROR)
 
         base_url = settings.BOT_URL
         if not base_url:
@@ -267,11 +281,13 @@ class BookingService:
                     payload.phone = prefill.phone
                 if not payload.customer and prefill.customer_name:
                     payload.customer = prefill.customer_name
+                if payload.lang is None and prefill.lang in _CLIENT_LANGS:
+                    payload.lang = prefill.lang  # type: ignore[assignment]
 
         if current_user is None:
             source_kind = BookingSource.BOT_LINK if prefill is not None else BookingSource.LANDING
             payload.source = f"{source_kind.value}:{payload.phone}"
-        elif current_user.role in _BOOKING_STAFF_ROLE_VALUES:
+        elif is_staff:
             payload.source = current_user.email
         else:
             payload.source = f"{BookingSource.ACCOUNT.value}:{current_user.email}"
@@ -280,8 +296,25 @@ class BookingService:
         # which overrides a top-level discount according to the bot contract.
         body = payload.model_dump(mode="json", exclude_unset=True)
         body["source"] = payload.source
+        if payload.lang is not None:
+            body["lang"] = payload.lang  # may come from the prefill, so not in fields_set
         body.pop("updated_by", None)
         body.pop("prefill_token", None)
+        if payload.hold_without_payment:
+            # Server-owned invariants: callers cannot combine a hold with an
+            # avans, invoice, shorter TTL, or client consent.
+            body["hold_without_payment"] = True
+            body["reserved_until"] = 24 * 60
+            body["prepayment"] = 0
+            body.pop("consent", None)
+            body.pop("kaspi_phone", None)
+        if is_staff:
+            # Staff cannot consent on the client's behalf: the bot asks the client on WhatsApp
+            # (bookings start in ``awaiting_consent``).
+            body.pop("consent", None)
+            body.pop("channel", None)
+        else:
+            body["channel"] = "site"
         async with httpx.AsyncClient(timeout=10.0) as client:
             try:
                 response = await client.post(
@@ -312,6 +345,43 @@ class BookingService:
                 loguru.logger.exception(f"Could not mark booking prefill {prefill.id} consumed.")
 
         return response.status_code, data
+
+    async def request_payment_for_hold(
+        self, booking_id: int, payload: BookingHoldPaymentIn, current_user: Account
+    ) -> tuple[int, typing.Any]:
+        if current_user.role not in _HOLD_WITHOUT_PAYMENT_ROLE_VALUES:
+            raise fastapi.HTTPException(
+                status_code=fastapi.status.HTTP_403_FORBIDDEN,
+                detail="Only admins and super-admins can convert a no-payment hold.",
+            )
+        base_url = settings.BOT_URL
+        if not base_url:
+            raise fastapi.HTTPException(
+                status_code=fastapi.status.HTTP_502_BAD_GATEWAY,
+                detail="BOT_URL is not configured.",
+            )
+        body = payload.model_dump(mode="json", exclude_unset=True)
+        body["source"] = current_user.email
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.post(
+                    base_url.rstrip("/") + f"/api/manager/bookings/{booking_id}/request-payment",
+                    headers=get_bot_service_headers(json=True),
+                    json=body,
+                )
+        except httpx.HTTPError as exc:
+            raise fastapi.HTTPException(
+                status_code=fastapi.status.HTTP_502_BAD_GATEWAY,
+                detail="Failed to reach the bot service.",
+            ) from exc
+        try:
+            data = response.json()
+        except ValueError as exc:
+            raise fastapi.HTTPException(
+                status_code=fastapi.status.HTTP_502_BAD_GATEWAY,
+                detail="Bot service returned a non-JSON response.",
+            ) from exc
+        return response.status_code, _normalize_entity_ids(data)
 
     async def get_my_bookings(self, current_account: Account) -> list[BookingOut]:
         bookings = await self.booking_repo.read_bookings(account_id=current_account.id)
@@ -447,8 +517,21 @@ class BookingService:
         return BookingDetailOut.model_validate(updated)
 
 
-# Same states the bot's EXCLUDE constraint uses to reject overlaps (SLOT_TAKEN).
-_SLOT_BLOCKING_STATES = {"awaiting_payment", "confirmed"}
+# Same states the bot's EXCLUDE constraint uses to reject overlaps (SLOT_TAKEN);
+# keep in sync with the bot (``awaiting_consent`` holds the slot while the client is asked for consent).
+_SLOT_BLOCKING_STATES = {
+    BookingStatus.AWAITING_CONSENT.value,
+    BookingStatus.AWAITING_PAYMENT.value,
+    BookingStatus.CONFIRMED.value,
+}
+
+_CLIENT_LANGS = {"ru", "kk"}
+
+_CONSENT_REQUIRED_ERROR: dict[str, typing.Any] = {
+    "ok": False,
+    "code": "CONSENT_REQUIRED",
+    "message": "Для брони необходимо согласиться с офертой.",
+}
 
 _BOOKING_STAFF_ROLE_VALUES = {
     Role.SUPER_ADMIN.value,
@@ -457,9 +540,19 @@ _BOOKING_STAFF_ROLE_VALUES = {
     Role.ARENA_MANAGER.value,
 }
 
+_HOLD_WITHOUT_PAYMENT_ROLE_VALUES = {
+    Role.SUPER_ADMIN.value,
+    Role.ADMIN.value,
+}
+
 
 def _extract_booking_ids(data: dict[str, typing.Any]) -> list[int] | None:
     """Best-effort ids of the bookings the bot created, whatever shape its batch envelope uses."""
+    top = data.get("booking_ids")
+    if isinstance(top, list):
+        ids = [i for i in top if isinstance(i, int) and not isinstance(i, bool)]
+        if ids:
+            return ids
     inner = data.get("data")
     if isinstance(inner, dict):
         inner = inner.get("bookings") or inner.get("ids") or inner.get("booking_ids") or inner.get("results")

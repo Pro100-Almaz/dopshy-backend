@@ -1,5 +1,6 @@
 import datetime
 import decimal
+import typing
 
 import pydantic
 
@@ -94,8 +95,21 @@ class BatchSlotIn(pydantic.BaseModel):
     discount_id: int | str | None = None
 
 
+class BookingConsentIn(pydantic.BaseModel):
+    """The website's offer checkbox. Only honoured for non-staff (website) bookings."""
+
+    accepted: bool
+    offer_version: str | None = None
+    text_version: str | None = None
+    at: datetime.datetime | None = None
+
+
 class BookingBatchInCreate(pydantic.BaseModel):
-    """Batch booking body proxied to the bot's POST /api/manager/bookings/batch."""
+    """Batch booking body proxied to the bot's POST /api/manager/bookings/batch.
+
+    ``channel`` is deliberately not client-settable: the service sets it ("site")
+    for every non-staff request.
+    """
 
     slots: list[BatchSlotIn] = pydantic.Field(min_length=1)
     customer: str | None = None
@@ -106,20 +120,51 @@ class BookingBatchInCreate(pydantic.BaseModel):
     prepayment: decimal.Decimal = 0
     discount_id: int | str | None = None
     reserved_until: int | None = None
+    # Admin/super-admin only: hold the slot for 24h without ApiPay or avans.
+    hold_without_payment: bool = False
     updated_by: str | None = None
     source: str | None = None
     # Opaque token from a bot-issued link; resolved server-side and never forwarded to the bot.
     prefill_token: str | None = None
+    # Number the Kaspi invoice goes to; the bot defaults it to ``phone`` (the contact number).
+    kaspi_phone: str | None = None
+    # Required (accepted=true) for website bookings; stripped for staff.
+    consent: BookingConsentIn | None = None
+    # Language of the client's messages.
+    lang: typing.Literal["ru", "kk"] | None = None
 
     @pydantic.field_validator("phone", mode="before")
     @classmethod
     def normalize_phone(cls, value: str | None) -> str | None:
         return normalize_kz_phone(value) if value is not None else None
 
+    @pydantic.field_validator("kaspi_phone", mode="before")
+    @classmethod
+    def normalize_kaspi_phone(cls, value: str | None) -> str | None:
+        # Blank means "use the contact phone", which is the bot's default when the key is absent.
+        if value is None or (isinstance(value, str) and not value.strip()):
+            return None
+        return normalize_kz_phone(value)
+
 
 class BookingStatusUpdate(pydantic.BaseModel):
     status: BookingStatus
     comment: str | None = None
+
+
+class BookingHoldPaymentIn(pydantic.BaseModel):
+    """Start consent/payment for an existing 24-hour no-payment hold."""
+
+    phone: str | None = None
+    kaspi_phone: str | None = None
+    lang: typing.Literal["ru", "kk"] | None = None
+
+    @pydantic.field_validator("phone", "kaspi_phone", mode="before")
+    @classmethod
+    def normalize_payment_phone(cls, value: str | None) -> str | None:
+        if value is None or (isinstance(value, str) and not value.strip()):
+            return None
+        return normalize_kz_phone(value)
 
 
 class BookingOut(pydantic.BaseModel):
@@ -211,6 +256,13 @@ class BotBookingRaw(pydantic.BaseModel):
     created_at: datetime.datetime | None = None
     updated_at: datetime.datetime | None = None
     has_contract: bool = False
+    # Payment number / offer consent (bot sends "" when unset).
+    kaspi_phone: str | None = None
+    consent_at: str | None = None  # ISO datetime, passed through as-is
+    consent_channel: str | None = None  # "bot" | "site" | "admin_bot"
+    consent_text_version: str | None = None
+    offer_version: str | None = None
+    payment_method: str | None = None  # "kaspi_invoice" | "link" | "hold_without_payment"
 
     model_config = pydantic.ConfigDict(extra="ignore")
 
@@ -228,6 +280,12 @@ class BotBookingRaw(pydantic.BaseModel):
         "time_start",
         "time_end",
         "date",
+        "kaspi_phone",
+        "consent_at",
+        "consent_channel",
+        "consent_text_version",
+        "offer_version",
+        "payment_method",
         mode="before",
     )
     @classmethod

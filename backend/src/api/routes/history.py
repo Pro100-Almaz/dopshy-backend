@@ -10,6 +10,8 @@ from src.services.history import HistoryService
 
 router = fastapi.APIRouter(prefix="/manager", tags=["manager-history"])
 
+HISTORY_VIEW_ROLES = tuple(role for role in Role if role not in (Role.BOXING_MANAGER, Role.CLIENT))
+
 
 @router.get(
     path="/history",
@@ -21,7 +23,7 @@ async def list_history(
     channel: str | None = fastapi.Query(default=None, description="Filter by channel: whatsapp or manager"),
     page: int | None = fastapi.Query(default=None, ge=1),
     page_size: int | None = fastapi.Query(default=None, ge=1, le=100),
-    _: Account = fastapi.Depends(require_roles(Role.SUPER_ADMIN)),
+    _: Account = fastapi.Depends(require_roles(*HISTORY_VIEW_ROLES)),
     history_service: HistoryService = fastapi.Depends(get_history_service),
 ) -> typing.Any:
     return await history_service.list_history(

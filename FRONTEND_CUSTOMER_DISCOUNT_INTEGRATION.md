@@ -734,6 +734,52 @@ Disable further selection when the local value reaches zero. This is only a UX
 guard; the backend remains authoritative because another user may consume a use
 concurrently.
 
+### 8.4 Offer consent, payment number and language
+
+The batch body also accepts:
+
+| Field | Who | Meaning |
+|---|---|---|
+| `consent` | website only | `{"accepted": true, "offer_version": "...", "text_version": "...", "at": "<ISO datetime>"}` — the offer checkbox. `accepted` is required; the rest may be `null`. |
+| `kaspi_phone` | website and staff | Number the Kaspi invoice is sent to. Normalized like `phone`; omit/blank = same as `phone`. |
+| `lang` | website and staff | `"ru"` or `"kk"` — language of the client's messages. |
+
+`channel` is not client-settable: the backend sends `"site"` for every non-staff
+request (anonymous landing, bot-link prefill, logged-in client) and strips
+`consent`/`channel` from staff requests (staff cannot consent for the client).
+
+Website request without `consent.accepted === true` → HTTP `400`
+`{"ok": false, "code": "CONSENT_REQUIRED", "message": "Для брони необходимо согласиться с офертой."}`
+(the bot is not called). Other bot errors are passed through unchanged
+(`400 INVALID`, `409 SLOT_TAKEN`, `502 PAYMENT_PROVIDER_ERROR`).
+
+Successful responses (HTTP `200`, passed through from the bot):
+
+```json
+// website
+{"ok": true, "created_count": 1, "booking_ids": [101], "invoice": {...} | null,
+ "payment": {"method": "kaspi_invoice", "phone": "87071112233", "amount": 10000}
+          | {"method": "link", "url": "https://pay.kaspi.kz/...", "amount": 10000, "reason": "no_kaspi" | "check_failed"}
+          | null,
+ "consent": null, "data": {...}}
+
+// staff
+{"ok": true, "booking_ids": [101], "invoice": null, "payment": null,
+ "consent": {"status": "pending", "request_id": 12}, "data": {...}}
+```
+
+Staff-created bookings start in the new state `awaiting_consent` (it holds the
+slot, like `awaiting_payment`) while the bot asks the client on WhatsApp.
+
+Booking rows from `GET /api/bookings`, `/api/bookings/range/...` and
+`GET /api/bookings/{id}` additionally carry `kaspi_phone`, `consent_at`,
+`consent_channel` (`bot` | `site` | `admin_bot`), `consent_text_version`,
+`offer_version` and `payment_method` (`kaspi_invoice` | `link`). In the list
+endpoints empty values are returned as `null`; the detail endpoint passes the
+bot row through as-is (empty strings) and also includes `apipay_invoice_id` and
+`consent_step` (`offer`, `same_number`, `new_number`, `link`, `done`,
+`declined`, `expired`, `cancelled` or `""`).
+
 ## 9. Booking editing
 
 Use the existing booking update endpoint:

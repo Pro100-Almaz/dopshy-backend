@@ -3,6 +3,7 @@ import enum
 
 class BookingStatus(str, enum.Enum):
     DRAFT = "draft"
+    AWAITING_CONSENT = "awaiting_consent"  # staff-created; the bot is asking the client to accept the offer
     AWAITING_PAYMENT = "awaiting_payment"
     PENDING = "pending"
     CONFIRMED = "confirmed"

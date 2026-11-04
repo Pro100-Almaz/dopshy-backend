@@ -56,9 +56,20 @@ services:
       - 8000
     ports:
       - "127.0.0.1:8002:8000"
+    networks:
+      - default
+      - shared
     depends_on:
       db:
         condition: service_healthy
 
 volumes:
   postgresql_db_data_dev:
+
+networks:
+  default:
+  # Shared with the bot's compose project so the backend can reach the bot
+  # by service name (http://bot:5000). Create once: `docker network create dopshy_shared`.
+  shared:
+    external: true
+    name: dopshy_shared
