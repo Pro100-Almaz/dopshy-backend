@@ -310,8 +310,8 @@ class BookingService:
             body.pop("consent", None)
             body.pop("kaspi_phone", None)
         if is_staff:
-            # Staff cannot consent on the client's behalf: the bot asks the client on WhatsApp
-            # (bookings start in ``awaiting_consent``).
+            # Staff bookings carry no consent: the bot treats the offer as accepted
+            # (consent channel 'admin'), bills Kaspi at once and only informs the client.
             body.pop("consent", None)
             body.pop("channel", None)
         else:

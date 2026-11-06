@@ -153,7 +153,7 @@ class BookingStatusUpdate(pydantic.BaseModel):
 
 
 class BookingHoldPaymentIn(pydantic.BaseModel):
-    """Start consent/payment for an existing 24-hour no-payment hold."""
+    """Send the Kaspi invoice for an existing 24-hour no-payment hold (no WhatsApp consent)."""
 
     phone: str | None = None
     kaspi_phone: str | None = None
@@ -274,7 +274,7 @@ class BotBookingRaw(pydantic.BaseModel):
     # Payment number / offer consent (bot sends "" when unset).
     kaspi_phone: str | None = None
     consent_at: str | None = None  # ISO datetime, passed through as-is
-    consent_channel: str | None = None  # "bot" | "site" | "admin_bot"
+    consent_channel: str | None = None  # "bot" | "site" | "admin" | "admin_bot"
     consent_text_version: str | None = None
     offer_version: str | None = None
     payment_method: str | None = None  # "kaspi_invoice" | "link" | "hold_without_payment"
