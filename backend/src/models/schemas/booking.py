@@ -152,6 +152,17 @@ class BookingStatusUpdate(pydantic.BaseModel):
     comment: str | None = None
 
 
+class KaspiCheckIn(pydantic.BaseModel):
+    """Phone to look up in Kaspi before an admin books for it."""
+
+    phone: str
+
+    @pydantic.field_validator("phone", mode="before")
+    @classmethod
+    def normalize_check_phone(cls, value: str) -> str:
+        return normalize_kz_phone(value)
+
+
 class BookingHoldPaymentIn(pydantic.BaseModel):
     """Start consent/payment for an existing 24-hour no-payment hold."""
 

@@ -18,6 +18,7 @@ from src.models.schemas.booking import (
     BookingStatusUpdate,
     BotBookedSlotOut,
     BotBookingRaw,
+    KaspiCheckIn,
 )
 from src.services.booking import BookingService
 
@@ -436,6 +437,22 @@ async def test_admin_can_convert_hold_through_bot_consent_endpoint(bot) -> None:
     )
     assert status == 200 and data["request_id"] == 17
     assert bot.sent == {"phone": "77071112233", "lang": "kk", "source": "admin@example.com"}
+
+
+@pytest.mark.asyncio
+async def test_staff_kaspi_check_is_relayed_to_the_bot(bot) -> None:
+    bot.body = {"ok": True, "has_kaspi": False, "phone": "87071112233", "checked": True}
+    status, data = await _service().check_kaspi_number(KaspiCheckIn(phone="8 707 111 22 33"), current_user=STAFF)
+    assert status == 200 and data["has_kaspi"] is False
+    assert bot.sent == {"phone": "77071112233"}
+
+
+@pytest.mark.asyncio
+async def test_client_cannot_check_kaspi_numbers(bot) -> None:
+    with pytest.raises(fastapi.HTTPException) as exc:
+        await _service().check_kaspi_number(KaspiCheckIn(phone="77071112233"), current_user=CLIENT)
+    assert exc.value.status_code == 403
+    assert bot.sent is None
 
 
 def test_batch_schema_rejects_bad_lang_and_ignores_client_channel() -> None:

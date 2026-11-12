@@ -22,6 +22,7 @@ from src.models.schemas.booking import (
     BookingStatusUpdate,
     BotBookedSlotOut,
     BotBookingRaw,
+    KaspiCheckIn,
     PublicBookedSlotOut,
 )
 from src.repository.crud.booking import BookingCRUDRepository
@@ -346,6 +347,19 @@ class BookingService:
                 loguru.logger.exception(f"Could not mark booking prefill {prefill.id} consumed.")
 
         return response.status_code, data
+
+    async def check_kaspi_number(self, payload: KaspiCheckIn, current_user: Account) -> tuple[int, typing.Any]:
+        """Ask the bot (ApiPay ``/clients/check``) whether Kaspi knows this number.
+
+        Staff only: the admin booking form validates the payment number with it
+        before the create button is enabled.
+        """
+        if current_user.role not in _BOOKING_STAFF_ROLE_VALUES:
+            raise fastapi.HTTPException(
+                status_code=fastapi.status.HTTP_403_FORBIDDEN,
+                detail="Only staff can check Kaspi numbers.",
+            )
+        return await self._bot_request("POST", "/api/manager/kaspi/check", {"phone": payload.phone})
 
     async def request_payment_for_hold(
         self, booking_id: int, payload: BookingHoldPaymentIn, current_user: Account
