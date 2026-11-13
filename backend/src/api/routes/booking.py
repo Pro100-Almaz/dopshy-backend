@@ -19,6 +19,7 @@ from src.models.schemas.booking import (
     BookingStatusUpdate,
     BotBookedSlotOut,
     BotBookingRaw,
+    KaspiCheckIn,
     PublicBookedSlotOut,
 )
 from src.services.booking import BookingService
@@ -91,6 +92,19 @@ async def create_bookings_batch(
     current_user: Account | None = fastapi.Depends(get_current_user_optional),
 ) -> fastapi.Response:
     status_code, data = await booking_service.create_bookings_batch(payload=payload, current_user=current_user)
+    return fastapi.responses.JSONResponse(status_code=status_code, content=data)
+
+
+@router.post(
+    path="/kaspi-check",
+    name="bookings:check-kaspi-number",
+)
+async def check_kaspi_number(
+    payload: KaspiCheckIn,
+    current_user: Account = fastapi.Depends(get_current_user),
+    booking_service: BookingService = fastapi.Depends(get_booking_service),
+) -> fastapi.Response:
+    status_code, data = await booking_service.check_kaspi_number(payload=payload, current_user=current_user)
     return fastapi.responses.JSONResponse(status_code=status_code, content=data)
 
 
